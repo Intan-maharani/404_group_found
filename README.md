@@ -1,36 +1,37 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# 404 Group Found [CHILL TIME]
 
-## Getting Started
+Aplikasi  “Chill Time” ini Adalah aplikasi berbasis web untuk memudahkan proses penyewaan dan peminjaman alat-alat camping/piknik. Sistem ini dirancang untuk mempermudah pengguna dalam mengajukan peminjaman serta membantu pihak manajemen dalam memantau dan menyetujui ketersediaan alat secara real-time.
 
-First, run the development server:
+## Fitur Utama
+Sistem ini memiliki beberapa fitur utama yang terbagi sesuai dengan alur pengguna dan pengelola:
+ 1. Autentikasi (Auth)
+•	Register: Pendaftaran akun baru untuk pengguna/penyewa.
+•	Login: Masuk ke dalam sistem menggunakan email/username dan kata sandi.
+•	Role-based Access Control: Pemisahan hak akses antara User (Penyewa) dan Admin/Manajemen.
+2. Pengajuan Peminjaman (User)
+•	Katalog Alat: Melihat daftar alat mendaki/camping yang tersedia (coolbox,tikar, kompor portable, dll.).
+•	Form Pengajuan: Menentukan detail tanggal mulai, tanggal kembali, dan jumlah alat yang dipinjam.
+•	Validasi Stok: Pemilihan alat secara otomatis mengecek ketersediaan stok sesuai tanggal yang dipilih.
+3. Daftar & Status Peminjaman (User)
+•	Riwayat Peminjaman: Melihat semua riwayat transaksi peminjaman yang pernah dilakukan.
+•	Pelacakan Status Real-time: Memantau status pengajuan yang terbagi menjadi:
+o	⏳ Pending: Menunggu persetujuan manajemen.
+o	✅ Approved: Pengajuan disetujui, siap diambil.
+o	❌ Rejected: Pengajuan ditolak (dilengkapi alasan penolakan).
+o	🎒 Borrowed: Alat sedang dibawa/dipinjam.
+o	✔️ Returned: Alat sudah dikembalikan.
+ 4. Paket Hemat / Bundling (User & Admin)
+•	Katalog Paket (User): Melihat dan memilih gabungan beberapa alat piknik/grill dalam satu paket dengan harga sewa yang lebih terjangkau.
+•	Detail & Rincian Paket (User): Memeriksa daftar lengkap alat yang didapat, deskripsi penggunaan, serta total estimasi kehematan.
+•	Pengajuan Sewa Instan (User): Mengajukan peminjaman seluruh alat di dalam paket sekaligus tanpa perlu memilih barang satu per satu.
+•	Pengelolaan Paket (Admin): Menambah, memperbarui, atau menghapus kombinasi alat, deskripsi paket, dan harga promo bundling.
+•	Sinkronisasi Stok Otomatis (Admin): Sistem memverifikasi ketersediaan stok setiap alat individu yang tergabung di dalam paket sebelum persetujuan diberikan.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+5. Approval & Manajemen (Admin/Manajemen)
+•	Dashboard Manajemen: Ringkasan data transaksi, total alat dipinjam, dan persetujuan yang tertunda.
+•	Persetujuan (Approval): Menerima atau menolak pengajuan peminjaman dari pengguna.
+•	Pengelolaan Inventaris: Menambah, memperbarui, atau menghapus data alat dan stok.
+•	Pengembalian Alat: Verifikasi kondisi dan tanggal pengembalian alat dari pengguna.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
