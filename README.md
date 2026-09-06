@@ -1,6 +1,6 @@
 # 404 Group Found [CHILL TIME]
 
-Aplikasi “Chill Time” ini adalah aplikasi berbasis web untuk memudahkan proses penyewaan dan peminjaman alat-alat camping/piknik. Sistem ini dirancang untuk mempermudah pengguna dalam mengajukan peminjaman serta membantu pihak manajemen dalam memantau dan menyetujui ketersediaan alat secara real-time.
+Aplikasi **“Chill Time”** ini adalah aplikasi berbasis web untuk memudahkan proses penyewaan dan peminjaman alat-alat camping/piknik. Sistem ini dirancang untuk mempermudah pengguna dalam mengajukan peminjaman serta membantu pihak manajemen dalam memantau dan menyetujui ketersediaan alat secara real-time.
 
 ## Fitur Utama
 
@@ -9,8 +9,8 @@ Sistem ini memiliki beberapa fitur utama yang terbagi sesuai dengan alur penggun
 ### 1. Autentikasi (Auth)
 
 - **Register:** Pendaftaran akun baru untuk pengguna/penyewa.
-- **Login:** Masuk ke dalam sistem menggunakan email/username dan kata sandi.
-- **Role-based Access Control:** Pemisahan hak akses antara User (Penyewa) dan Admin/Manajemen.
+- **Login:** Masuk ke dalam sistem menggunakan username dan kata sandi.
+- **Role-based Access Control:** Pemisahan hak akses antara User (Penyewa) dan Admin.
 
 ### 2. Pengajuan Peminjaman (User)
 
