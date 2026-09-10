@@ -10,7 +10,7 @@ Sistem ini memiliki beberapa fitur utama yang terbagi sesuai dengan alur penggun
 
 - **Register:** Pendaftaran akun baru untuk pengguna/penyewa.
 - **Login:** Masuk ke dalam sistem menggunakan username dan kata sandi.
-- **Role-based Access Control:** Pemisahan hak akses antara User (Penyewa) dan Admin.
+- **Role-based Access Control:** Pemisahan hak akses antara User (Penyewa) dan Admin..
 
 ### 2. Pengajuan Peminjaman (User)
 
