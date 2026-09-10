@@ -58,19 +58,6 @@ export default function AuthPage() {
             {mode === "register" && <Field label="Nama lengkap" placeholder="Nama kamu" />}
             <Field label="Username" placeholder="username_kamu" />
             <Field label="Kata sandi" placeholder="••••••••" type="password" />
-            {mode === "register" && (
-              <div>
-                <label className="text-xs font-semibold block mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
-                  Daftar sebagai
-                </label>
-                <div className="flex gap-2">
-                  <GearTag tone={C.forest}>Penyewa (User)</GearTag>
-                  <span className="text-xs self-center" style={{ color: "#999" }}>
-                    Admin dibuat oleh manajemen
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
           <button
