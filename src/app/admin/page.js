@@ -5,9 +5,11 @@ import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow } from "../../components/Shared";
 
 const approvalQueue = [
-  { id: "CT-2026-091", user: "Raka A.", alat: "Tenda Dome 4P", tanggal: "12–14 Sep" },
-  { id: "CT-2026-093", user: "Nadia S.", alat: "Coolbox 30L x2", tanggal: "13–15 Sep" },
-  { id: "CT-2026-094", user: "Fajar P.", alat: "Set Alat Masak", tanggal: "14–16 Sep" },
+  { id: "CT-2026-091", user: "Intan M.", alat: "Tenda Dome 4P", tanggal: "12–14 Sep" },
+  { id: "CT-2026-093", user: "Widya A.", alat: "Coolbox 30L x2", tanggal: "13–15 Sep" },
+  { id: "CT-2026-094", user: "Putri A.", alat: "Set Alat Masak", tanggal: "14–16 Sep" },
+  { id: "CT-2026-095", user: "Anisa M.", alat: "Coolbox 30L x2", tanggal: "15–16 Sep" },
+  
 ];
 
 export default function AdminPage() {
@@ -22,9 +24,9 @@ export default function AdminPage() {
 
       <div className="grid sm:grid-cols-3 gap-4 mb-6">
         {[
-          { label: "Alat sedang dipinjam", value: "27", icon: Backpack, tone: C.sky },
-          { label: "Persetujuan tertunda", value: "3", icon: Clock3, tone: C.amberDeep },
-          { label: "Total penyewa aktif", value: "142", icon: Users, tone: C.moss },
+          { label: "Alat sedang dipinjam", value: "4", icon: Backpack, tone: C.sky },
+          { label: "Persetujuan tertunda", value: "0", icon: Clock3, tone: C.amberDeep },
+          { label: "Total penyewa aktif", value: "404", icon: Users, tone: C.moss },
         ].map((s) => (
           <div key={s.label} className="rounded-2xl p-5" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
             <s.icon size={18} style={{ color: s.tone }} />
