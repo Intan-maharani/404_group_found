@@ -34,7 +34,6 @@ export default function HistoryPage() {
         index={3}
         total={5}
         title="Daftar & Status Peminjaman"
-        desc="Penyewa memantau riwayat pengajuan peminjaman alat camping/piknik serta melacak status peminjaman secara real-time."
       />
 
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
