@@ -13,8 +13,8 @@ export default function AuthPage() {
       <SectionEyebrow
         index={1}
         total={5}
-        title="Masuk ke Chill Time"
-        desc="Pengguna mendaftar atau masuk, lalu sistem mengarahkan ke tampilan Penyewa atau Admin sesuai hak akses."
+        title="Selamat Datang di Chill Time"
+        desc="Silakan masuk untuk mengakses akun dan menggunakan layanan Chill Time."
       />
       <div className="grid md:grid-cols-[1fr_1.1fr] gap-8 items-start">
         <div className="rounded-2xl p-8" style={{ backgroundColor: C.forestDeep, color: C.paper }}>
@@ -27,8 +27,6 @@ export default function AuthPage() {
             dalam hitungan menit. Kembalikan setelah petualangan selesai.
           </p>
           <div className="mt-8 flex gap-2 flex-wrap">
-            <GearTag tone={C.amber}>Real-time stock</GearTag>
-            <GearTag tone={C.sky}>Role-based access</GearTag>
           </div>
         </div>
 

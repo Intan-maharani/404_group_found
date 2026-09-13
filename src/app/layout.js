@@ -31,7 +31,6 @@ export default function RootLayout({ children }) {
                 </p>
               </div>
             </div>
-            <GearTag tone={C.forest}>Next.js App Router · Prototipe UI</GearTag>
           </header>
 
           <div className="grid md:grid-cols-[220px_1fr] gap-8">
