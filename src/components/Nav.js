@@ -9,7 +9,7 @@ const FEATURES = [
   { href: "/auth", label: "Autentikasi", icon: LogIn },
   { href: "/catalog", label: "Pengajuan Peminjaman", icon: PackageSearch },
   { href: "/history", label: "Riwayat & Status", icon: ClipboardList },
-  { href: "/bundle", label: "Paket Hemat", icon: Sparkles },
+  { href: "/bundle", label: "Katalog Peminjaman", icon: Sparkles },
   { href: "/admin", label: "Approval Admin", icon: LayoutGrid },
 ];
 

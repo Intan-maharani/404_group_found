@@ -34,38 +34,44 @@ export default function BundlePage() {
       <SectionEyebrow
         index={4}
         total={5}
-        title="Paket Hemat (Bundling)"
-        desc="Penyewa memilih kombinasi alat sekaligus dengan harga lebih hemat; Admin mengelola isi paket dan sistem menyinkronkan stok tiap alat di dalamnya."
+        title="Katalog Peminjaman"
+        desc="kombinasi alat sekaligus dengan harga lebih hemat"
       />
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-8">
+        {/* Kolom Kartu Pilihan */}
         <div className="grid sm:grid-cols-3 gap-4">
           {paket.map((p, i) => (
             <button
               key={p.name}
               onClick={() => setSelected(i)}
-              className="text-left rounded-2xl p-5 flex flex-col"
+              className="text-left rounded-2xl p-5 flex flex-col justify-between"
               style={{
                 backgroundColor: selected === i ? C.moss : C.paper,
                 border: `1px solid ${selected === i ? C.moss : C.canvasDeep}`,
               }}
             >
-              <Sparkles size={18} style={{ color: selected === i ? C.amber : C.amberDeep }} />
-              <p className="mt-3 font-bold text-sm leading-snug" style={{ ...headingFont, color: selected === i ? "#fff" : C.forestDeep }}>
-                {p.name}
-              </p>
-              <p className="text-xs mt-2 flex-1" style={{ ...bodyFont, color: selected === i ? "#E4EEE0" : "#8A8272" }}>
-                {p.items.length} alat termasuk
-              </p>
-              <div className="flex items-center justify-between mt-4">
+              <div>
+                <Sparkles size={16} style={{ color: selected === i ? C.amber : C.amberDeep }} />
+                <p className="mt-3 font-bold text-sm leading-snug" style={{ ...headingFont, color: selected === i ? "#fff" : C.forestDeep }}>
+                  {p.name}
+                </p>
+                <p className="text-xs mt-2" style={{ ...bodyFont, color: selected === i ? "#E4EEE0" : "#8A8272" }}>
+                  {p.items.length} alat termasuk
+                </p>
+              </div>
+
+              {/* Posisi Badge di Atas Harga */}
+              <div className="flex flex-col items-start gap-1.5 mt-4">
+                <GearTag tone={selected === i ? C.amber : C.rust}>{p.save}</GearTag>
                 <span className="text-xs font-semibold" style={{ ...bodyFont, color: selected === i ? "#fff" : C.ink }}>
                   {p.price}
                 </span>
-                <GearTag tone={selected === i ? C.amber : C.rust}>{p.save}</GearTag>
               </div>
             </button>
           ))}
         </div>
 
+        {/* Kolom Detail Paket */}
         <div className="rounded-2xl p-6" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
           <h3 className="text-lg font-bold mb-4" style={{ ...headingFont, color: C.forestDeep }}>
             {paket[selected].name}
@@ -82,7 +88,7 @@ export default function BundlePage() {
             ))}
           </ul>
           <StitchDivider />
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between gap-4 mb-5">
             <div>
               <p className="text-xs" style={{ ...bodyFont, color: "#8A8272" }}>Total sewa</p>
               <p className="text-xl font-bold" style={{ ...headingFont, color: C.forestDeep }}>
