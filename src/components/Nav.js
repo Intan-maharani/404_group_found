@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LogIn, PackageSearch, ClipboardList, Sparkles, LayoutGrid } from "lucide-react";
+import { LogIn, PackageSearch, ClipboardList, LayoutGrid } from "lucide-react";
 import { C } from "../lib/tokens";
 
 const FEATURES = [
   { href: "/auth", label: "Autentikasi", icon: LogIn },
-  { href: "/catalog", label: "Pengajuan Peminjaman", icon: PackageSearch },
+  { href: "/catalog", label: "Katalog Peminjaman", icon: PackageSearch },
   { href: "/history", label: "Riwayat & Status", icon: ClipboardList },
-  { href: "/bundle", label: "Katalog Peminjaman", icon: Sparkles },
   { href: "/admin", label: "Approval Admin", icon: LayoutGrid },
 ];
 

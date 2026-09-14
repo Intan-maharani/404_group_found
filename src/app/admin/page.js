@@ -16,8 +16,8 @@ export default function AdminPage() {
   return (
     <div>
       <SectionEyebrow
-        index={5}
-        total={5}
+        index={4}
+        total={4}
         title="Approval & Manajemen Admin"
         desc="Manajemen memantau ringkasan operasional, menyetujui atau menolak pengajuan, serta mengelola inventaris dan pengembalian alat."
       />

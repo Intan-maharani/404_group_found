@@ -12,7 +12,7 @@ export default function AuthPage() {
     <div>
       <SectionEyebrow
         index={1}
-        total={5}
+        total={4}
         title="Selamat Datang di Chill Time"
         desc="Silakan masuk untuk mengakses akun dan menggunakan layanan Chill Time."
       />

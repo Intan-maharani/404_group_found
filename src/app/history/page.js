@@ -32,7 +32,7 @@ export default function HistoryPage() {
     <div>
       <SectionEyebrow
         index={3}
-        total={5}
+        total={4}
         title="Daftar & Status Peminjaman"
       />
 
