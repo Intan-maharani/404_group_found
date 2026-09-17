@@ -1,12 +1,79 @@
 "use client";
 
 import { useState } from "react";
-import { Tent, LogIn, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Tent, LogIn, UserPlus, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { C, headingFont, bodyFont } from "../../lib/tokens";
-import { GearTag, SectionEyebrow, Field } from "../../components/Shared";
+import { SectionEyebrow, Field } from "../../components/Shared";
+import { apiFetch } from "../../lib/api";
 
 export default function AuthPage() {
+  const router = useRouter();
   const [mode, setMode] = useState("login");
+  const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState("");
+  const [successMsg, setSuccessMsg] = useState("");
+
+  const [form, setForm] = useState({
+    nama: "",
+    email: "",
+    no_telepon: "",
+    password: "",
+  });
+
+  const handleChange = (e) => {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    setErrorMsg("");
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setErrorMsg("");
+    setSuccessMsg("");
+
+    try {
+      if (mode === "register") {
+        const res = await apiFetch("/register", {
+          method: "POST",
+          body: JSON.stringify({
+            nama: form.nama,
+            email: form.email,
+            no_telepon: form.no_telepon || "08123456789",
+            password: form.password,
+            role: "user",
+          }),
+        });
+
+        setSuccessMsg("Pendaftaran akun berhasil! Silakan masuk.");
+        setMode("login");
+      } else {
+        const res = await apiFetch("/login", {
+          method: "POST",
+          body: JSON.stringify({
+            email: form.email,
+            password: form.password,
+          }),
+        });
+
+        if (res.token) {
+          localStorage.setItem("session_token", res.token);
+          if (res.user) {
+            localStorage.setItem("session_user", JSON.stringify(res.user));
+          }
+        }
+
+        setSuccessMsg("Login berhasil! Mengalihkan ke Katalog...");
+        setTimeout(() => {
+          router.push("/catalog");
+        }, 800);
+      }
+    } catch (err) {
+      setErrorMsg(err.message || "Terjadi kesalahan, silakan coba lagi.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div>
@@ -26,8 +93,6 @@ export default function AuthPage() {
             Sewa coolbox, tikar, kompor portable, tenda, dan lampu camping
             dalam hitungan menit. Kembalikan setelah petualangan selesai.
           </p>
-          <div className="mt-8 flex gap-2 flex-wrap">
-          </div>
         </div>
 
         <div className="rounded-2xl p-7" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
@@ -38,8 +103,13 @@ export default function AuthPage() {
             ].map(({ key, label, icon: Icon }) => (
               <button
                 key={key}
-                onClick={() => setMode(key)}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-semibold transition-colors"
+                type="button"
+                onClick={() => {
+                  setMode(key);
+                  setErrorMsg("");
+                  setSuccessMsg("");
+                }}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-semibold transition-colors cursor-pointer"
                 style={{
                   ...bodyFont,
                   backgroundColor: mode === key ? C.forest : "transparent",
@@ -52,23 +122,88 @@ export default function AuthPage() {
             ))}
           </div>
 
-          <div className="space-y-4">
-            {mode === "register" && <Field label="Nama lengkap" placeholder="Nama kamu" />}
-            <Field label="Username" placeholder="username_kamu" />
-            <Field label="Kata sandi" placeholder="••••••••" type="password" />
-          </div>
+          {errorMsg && (
+            <div className="mb-4 p-3 rounded-xl flex items-center gap-2 text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+              <AlertCircle size={15} className="flex-shrink-0" />
+              <span>{errorMsg}</span>
+            </div>
+          )}
 
-          <button
-            className="w-full mt-6 py-3 rounded-full font-semibold text-sm"
-            style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep }}
-          >
-            {mode === "login" ? "Masuk sekarang" : "Buat akun"}
-          </button>
+          {successMsg && (
+            <div className="mb-4 p-3 rounded-xl flex items-center gap-2 text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+              <CheckCircle2 size={15} className="flex-shrink-0" />
+              <span>{successMsg}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {mode === "register" && (
+              <>
+                <Field
+                  label="Nama lengkap"
+                  name="nama"
+                  value={form.nama}
+                  onChange={handleChange}
+                  placeholder="Nama lengkap kamu"
+                  required
+                />
+                <Field
+                  label="No. Telepon / WhatsApp"
+                  name="no_telepon"
+                  value={form.no_telepon}
+                  onChange={handleChange}
+                  placeholder="08123456789"
+                  required
+                />
+              </>
+            )}
+
+            <Field
+              label="Email"
+              name="email"
+              type="email"
+              value={form.email}
+              onChange={handleChange}
+              placeholder="nama@email.com"
+              required
+            />
+
+            <Field
+              label="Kata sandi"
+              name="password"
+              type="password"
+              value={form.password}
+              onChange={handleChange}
+              placeholder="••••••••"
+              required
+            />
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full mt-6 py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer transition-opacity"
+              style={{
+                ...bodyFont,
+                backgroundColor: C.amber,
+                color: C.forestDeep,
+                opacity: loading ? 0.7 : 1,
+              }}
+            >
+              {loading && <Loader2 size={16} className="animate-spin" />}
+              {mode === "login" ? "Masuk sekarang" : "Buat akun"}
+            </button>
+          </form>
+
           <p className="text-center text-xs mt-4" style={{ ...bodyFont, color: "#8A8272" }}>
             {mode === "login" ? "Belum punya akun? " : "Sudah punya akun? "}
             <button
-              onClick={() => setMode(mode === "login" ? "register" : "login")}
-              className="font-semibold underline"
+              type="button"
+              onClick={() => {
+                setMode(mode === "login" ? "register" : "login");
+                setErrorMsg("");
+                setSuccessMsg("");
+              }}
+              className="font-semibold underline cursor-pointer"
               style={{ color: C.forest }}
             >
               {mode === "login" ? "Daftar di sini" : "Masuk di sini"}

@@ -51,14 +51,12 @@ const paket = [
 ];
 
 export default function CatalogPage() {
-  const [activeTab, setActiveTab] = useState("satuan"); // "satuan" | "bundle"
+  const [activeTab, setActiveTab] = useState("satuan");
   const [searchQuery, setSearchQuery] = useState("");
   
-  // State untuk Alat Satuan
   const [qty, setQty] = useState(1);
   const [selectedAlatIndex, setSelectedAlatIndex] = useState(0);
 
-  // State untuk Paket Bundle
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(0);
 
   const filteredAlat = alatList.filter((a) =>

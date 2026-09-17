@@ -5,7 +5,6 @@ import { Clock3, CheckCircle2, XCircle, Backpack, RotateCcw } from "lucide-react
 import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow } from "../../components/Shared";
 
-// 5 Status Peminjaman sesuai deskripsi README Nomor 3
 const statusMeta = {
   Pending: { label: "Pending", color: C.amberDeep, icon: Clock3, note: "Menunggu persetujuan manajemen" },
   Approved: { label: "Approved", color: C.moss, icon: CheckCircle2, note: "Pengajuan disetujui, siap diambil" },
@@ -14,7 +13,6 @@ const statusMeta = {
   Returned: { label: "Returned", color: "#7B8A6E", icon: RotateCcw, note: "Alat sudah dikembalikan & diverifikasi" },
 };
 
-// Data riwayat peminjaman awal
 const riwayatAwal = [
   { id: "CT-2026-091", alat: "Tenda Dome 4P", tanggal: "12–14 Sep 2026", status: "Pending" },
   { id: "CT-2026-090", alat: "Coolbox 30L, Tikar Piknik", tanggal: "10–12 Sep 2026", status: "Approved" },
