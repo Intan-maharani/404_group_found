@@ -4,41 +4,33 @@ Aplikasi **“Chill Time”** ini adalah aplikasi berbasis web untuk memudahkan 
 
 ## Fitur Utama
 
-Sistem ini memiliki beberapa fitur utama yang terbagi sesuai dengan alur pengguna dan pengelola:
+Sistem ini memiliki 4 fitur utama yang terbagi sesuai dengan alur pengguna dan pengelola:
 
 ### 1. Autentikasi (Auth)
 
 - **Register:** Pendaftaran akun baru untuk pengguna/penyewa.
 - **Login:** Masuk ke dalam sistem menggunakan username dan kata sandi.
-- **Role-based Access Control:** Pemisahan hak akses antara User (Penyewa) dan Admin..
+- **Role-based Access Control:** Pemisahan hak akses antara User (Penyewa) dan Admin.
 
-### 2. Pengajuan Peminjaman (User)
+### 2. Katalog & Pengajuan Peminjaman (User)
 
-- **Katalog Alat:** Melihat daftar alat piknik/camping yang tersedia (coolbox, tikar, kompor portable, dll.).
-- **Form Pengajuan:** Menentukan detail tanggal mulai, tanggal kembali, dan jumlah alat yang dipinjam.
-- **Validasi Stok:** Pemilihan alat secara otomatis mengecek ketersediaan stok sesuai tanggal yang dipilih.
+- **Katalog Alat Satuan & Paket Bundle:** Menelusuri pilihan alat camping/piknik satuan maupun paket hemat bundling.
+- **Form Pengajuan:** Menentukan detail tanggal mulai, tanggal kembali, dan jumlah alat/paket yang dipinjam.
+- **Validasi Stok Otomatis:** Sistem secara otomatis mengecek ketersediaan stok alat sesuai rentang tanggal yang dipilih sebelum pengajuan dikirim.
 
-### 3. Daftar & Status Peminjaman (User)
+### 3. Riwayat & Status Peminjaman (User)
 
-- **Riwayat Peminjaman:** Melihat semua riwayat transaksi peminjaman yang pernah dilakukan.
+- **Riwayat Peminjaman:** Melihat daftar seluruh riwayat transaksi peminjaman yang pernah dilakukan.
 - **Pelacakan Status Real-time:** Memantau status pengajuan yang terbagi menjadi:
   - ⏳ **Pending:** Menunggu persetujuan manajemen.
   - ✅ **Approved:** Pengajuan disetujui, siap diambil.
   - ❌ **Rejected:** Pengajuan ditolak (dilengkapi alasan penolakan).
   - 🎒 **Borrowed:** Alat sedang dibawa/dipinjam.
-  - ✔️ **Returned:** Alat sudah dikembalikan.
+  - ✔️ **Returned:** Alat sudah dikembalikan dan diverifikasi.
 
-### 4. Paket Hemat / Bundling (User & Admin)
+### 4. Approval & Manajemen (Admin/Manajemen)
 
-- **Katalog Paket (User):** Melihat dan memilih gabungan beberapa alat piknik/grill dalam satu paket dengan harga sewa yang lebih terjangkau.
-- **Detail & Rincian Paket (User):** Memeriksa daftar lengkap alat yang didapat, deskripsi penggunaan, serta total estimasi kehematan.
-- **Pengajuan Sewa Instan (User):** Mengajukan peminjaman seluruh alat di dalam paket sekaligus tanpa perlu memilih barang satu per satu.
-- **Pengelolaan Paket (Admin):** Menambah, memperbarui, atau menghapus kombinasi alat, deskripsi paket, dan harga promo bundling.
-- **Sinkronisasi Stok Otomatis (Admin):** Sistem memverifikasi ketersediaan stok setiap alat individu yang tergabung di dalam paket sebelum persetujuan diberikan.
-
-### 5. Approval & Manajemen (Admin/Manajemen)
-
-- **Dashboard Manajemen:** Ringkasan data transaksi, total alat dipinjam, dan persetujuan yang tertunda.
+- **Dashboard Manajemen:** Ringkasan data transaksi operasional, total alat dipinjam, antrean persetujuan tertunda, dan total penyewa aktif.
 - **Persetujuan (Approval):** Menerima atau menolak pengajuan peminjaman dari pengguna.
-- **Pengelolaan Inventaris:** Menambah, memperbarui, atau menghapus data alat dan stok.
-- **Pengembalian Alat:** Verifikasi kondisi dan tanggal pengembalian alat dari pengguna.
+- **Pengelolaan Inventaris & Stok:** Memantau ketersediaan unit dan status alat camping.
+- **Verifikasi Pengembalian:** Verifikasi kondisi dan tanggal pengembalian alat dari pengguna.
