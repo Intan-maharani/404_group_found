@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Tent, LogIn, UserPlus, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow, Field } from "../../components/Shared";
-import { apiFetch } from "../../lib/api";
 
 export default function AuthPage() {
   const router = useRouter();
