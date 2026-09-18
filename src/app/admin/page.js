@@ -11,7 +11,6 @@ const approvalQueue = [
   { id: "CT-2026-095", user: "Anisa M.", alat: "Coolbox 30L x2", tanggal: "15–16 Sep" },
   
 ];
-
 export default function AdminPage() {
   return (
     <div>
