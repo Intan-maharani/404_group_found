@@ -318,7 +318,7 @@ export default function CatalogPage() {
                       key={p.name}
                       type="button"
                       onClick={() => setSelectedBundleIndex(i)}
-                      className="text-left rounded-2xl p-5 flex flex-col justify-between transition-all cursor-pointer min-h-[310px]"
+                      className="text-left rounded-2xl p-5 flex flex-col justify-between transition-all cursor-pointer min-h-77.5"
                       style={{
                         backgroundColor: isSelected ? C.moss : C.paper,
                         border: `1px solid ${isSelected ? C.moss : C.canvasDeep}`,
@@ -387,7 +387,7 @@ export default function CatalogPage() {
             >
               <div className="flex items-center gap-3">
                 <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                  className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
                   style={{ backgroundColor: `${C.moss}1F` }}
                 >
                   <CheckCircle2 size={18} style={{ color: C.moss }} />
