@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   PackageSearch,
   LayoutGrid,
@@ -12,13 +14,18 @@ import {
   Calendar,
   Hash,
   CheckCircle2,
+  AlertCircle,
   Plus,
   Minus,
   Sparkles,
   ChevronRight,
+  Loader2,
+  RefreshCw,
+  ArrowRight,
 } from "lucide-react";
 import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow, GearTag, StitchDivider } from "../../components/Shared";
+import { apiFetch } from "../../lib/api";
 
 const alatList = [
   { name: "Coolbox 30L", icon: PackageSearch, stock: 6, price: "Rp25.000/hari" },
@@ -27,43 +34,132 @@ const alatList = [
   { name: "Tenda Dome 4P", icon: Tent, stock: 3, price: "Rp45.000/hari" },
   { name: "Lampu Camping", icon: Lamp, stock: 9, price: "Rp8.000/hari" },
   { name: "Set Alat Masak", icon: Utensils, stock: 5, price: "Rp15.000/hari" },
+const initialAlatList = [
+  { id_item: "coolbox-30l", name: "Coolbox 30L", icon: PackageSearch, stock: 6, price: "Rp25.000/hari", rawPrice: 25000 },
+  { id_item: "tikar-piknik", name: "Tikar Piknik", icon: LayoutGrid, stock: 12, price: "Rp10.000/hari", rawPrice: 10000 },
+  { id_item: "kompor-portable", name: "Kompor Portable", icon: Flame, stock: 4, price: "Rp20.000/hari", rawPrice: 20000 },
+  { id_item: "tenda-dome-4p", name: "Tenda Dome 4P", icon: Tent, stock: 3, price: "Rp45.000/hari", rawPrice: 45000 },
+  { id_item: "lampu-camping", name: "Lampu Camping", icon: Lamp, stock: 9, price: "Rp8.000/hari", rawPrice: 8000 },
+  { id_item: "set-alat-masak", name: "Set Alat Masak", icon: Utensils, stock: 5, price: "Rp15.000/hari", rawPrice: 15000 },
 ];
 
 const paket = [
+const initialPaket = [
   {
+    id_package: "pkg-solo",
     name: "Paket Camping Solo",
     items: ["Tenda Dome 2P", "Kompor Portable", "Lampu Camping", "Matras"],
     price: "Rp55.000/hari",
+    rawPrice: 55000,
     save: "Hemat 18%",
   },
   {
+    id_package: "pkg-family",
     name: "Paket Piknik Keluarga",
     items: ["Tikar Piknik XL", "Coolbox 30L", "Set Alat Makan"],
     price: "Rp38.000/hari",
+    rawPrice: 38000,
     save: "Hemat 22%",
   },
   {
+    id_package: "pkg-grill",
     name: "Paket Grill Party",
     items: ["Kompor Portable", "Set Alat Masak", "Coolbox 30L", "Meja Lipat"],
     price: "Rp62.000/hari",
+    rawPrice: 62000,
     save: "Hemat 15%",
   },
 ];
+
+function getIconByName(name = "") {
+  const n = name.toLowerCase();
+  if (n.includes("tenda") || n.includes("dome")) return Tent;
+  if (n.includes("kompor") || n.includes("grill") || n.includes("masak")) return Flame;
+  if (n.includes("lampu") || n.includes("light") || n.includes("lentera")) return Lamp;
+  if (n.includes("makan") || n.includes("utensil") || n.includes("alat masak")) return Utensils;
+  if (n.includes("tikar") || n.includes("matras") || n.includes("kursi") || n.includes("meja")) return LayoutGrid;
+  return PackageSearch;
+}
 
 export default function CatalogPage() {
   const [activeTab, setActiveTab] = useState("satuan");
   const [searchQuery, setSearchQuery] = useState("");
   
+
+  const [alatList, setAlatList] = useState(initialAlatList);
+  const [paketList, setPaketList] = useState(initialPaket);
+  const [loadingData, setLoadingData] = useState(false);
+
   const [qty, setQty] = useState(1);
   const [selectedAlatIndex, setSelectedAlatIndex] = useState(0);
 
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(0);
+
+  // Tanggal sewa
+  const todayStr = new Date().toISOString().split("T")[0];
+  const defaultEndStr = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+  const [startDate, setStartDate] = useState(todayStr);
+  const [endDate, setEndDate] = useState(defaultEndStr);
+
+  // Status submit sewa
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
+
+  const loadData = async () => {
+    setLoadingData(true);
+    try {
+      // 1. Fetch Items
+      const itemsRes = await apiFetch("/items");
+      if (Array.isArray(itemsRes) && itemsRes.length > 0) {
+        const mapped = itemsRes.map((it) => {
+          const rawPrice = it.harga_sewa_per_hari || it.harga_sewa || 20000;
+          const stock = it.stok_tersedia !== undefined ? it.stok_tersedia : (it.stok || it.stok_total || 5);
+          return {
+            id_item: it.id_item || it.id,
+            name: it.nama_item || it.name || "Alat Camping",
+            icon: getIconByName(it.nama_item || it.name),
+            stock: Number(stock),
+            rawPrice: Number(rawPrice),
+            price: `Rp${Number(rawPrice).toLocaleString("id-ID")}/hari`,
+          };
+        });
+        setAlatList(mapped);
+      }
+
+      // 2. Fetch Packages
+      const packagesRes = await apiFetch("/packages");
+      if (Array.isArray(packagesRes) && packagesRes.length > 0) {
+        const mappedPkgs = packagesRes.map((p, idx) => {
+          const rawPrice = p.harga || p.harga_paket || 50000;
+          return {
+            id_package: p.id_package || p.id || `pkg-${idx}`,
+            name: p.nama_paket || p.name || `Paket Glamping ${idx + 1}`,
+            items: p.deskripsi ? p.deskripsi.split(",").map((s) => s.trim()) : ["Perlengkapan Standar"],
+            rawPrice: Number(rawPrice),
+            price: `Rp${Number(rawPrice).toLocaleString("id-ID")}/hari`,
+            save: "Paket Hemat",
+          };
+        });
+        setPaketList(mappedPkgs);
+      }
+    } catch (err) {
+      console.warn("Menggunakan fallback data lokal karena API belum diisi:", err);
+    } finally {
+      setLoadingData(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
 
   const filteredAlat = alatList.filter((a) =>
     a.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredPaket = paket.filter(
+  const filteredPaket = paketList.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.items.some((it) => it.toLowerCase().includes(searchQuery.toLowerCase()))
@@ -71,6 +167,71 @@ export default function CatalogPage() {
 
   const currentAlat = filteredAlat[selectedAlatIndex] || filteredAlat[0];
   const currentPaket = filteredPaket[selectedBundleIndex] || filteredPaket[0];
+
+  // Hitung durasi hari
+  const rentDays = Math.max(
+    1,
+    Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) || 1
+  );
+
+  const handleSewa = async (type) => {
+    setSubmitting(true);
+    setSubmitError("");
+    setSubmitSuccess("");
+
+    const savedUser = localStorage.getItem("session_user");
+    const token = localStorage.getItem("session_token");
+
+    if (!token || !savedUser) {
+      setSubmitError("Silakan masuk (login) terlebih dahulu pada menu Autentikasi sebelum mengajukan sewa.");
+      setSubmitting(false);
+      return;
+    }
+
+    const user = JSON.parse(savedUser);
+    const isSatuan = type === "satuan";
+    const selectedItem = isSatuan ? currentAlat : currentPaket;
+    const itemPrice = selectedItem?.rawPrice || 25000;
+    const totalHarga = isSatuan ? itemPrice * qty * rentDays : itemPrice * rentDays;
+
+    try {
+      const borrowRes = await apiFetch("/borrows", {
+        method: "POST",
+        body: JSON.stringify({
+          id_user: user.id || user.id_user || "guest-user-404",
+          tanggal_pinjam: startDate,
+          tanggal_kembali: endDate,
+          status: "menunggu",
+          total_harga: totalHarga,
+        }),
+      });
+
+      const borrowId = borrowRes.id_borrow || borrowRes.id || `CT-${Date.now().toString().slice(-4)}`;
+
+      // Simpan rincian unit jika ada endpoint borrows_details
+      try {
+        await apiFetch("/borrows_details", {
+          method: "POST",
+          body: JSON.stringify({
+            id_borrow: borrowId,
+            id_item: isSatuan ? selectedItem.id_item : "bundle-pkg",
+            jumlah: isSatuan ? qty : 1,
+            subtotal: totalHarga,
+          }),
+        });
+      } catch {
+        // Toleransi jika borrows_details opsional
+      }
+
+      setSubmitSuccess(
+        `Pengajuan peminjaman "${selectedItem.name}" berhasil dikirim! ID Transaksi: ${borrowId}`
+      );
+    } catch (err) {
+      setSubmitError(err.message || "Gagal mengirim pengajuan sewa. Silakan coba lagi.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div>
@@ -80,6 +241,25 @@ export default function CatalogPage() {
         title="Katalog Peminjaman"
         desc="Penyewa dapat menelusuri alat satuan maupun paket hemat camping & piknik dengan pengecekan stok otomatis."
       />
+      <div className="flex items-start justify-between gap-4">
+        <SectionEyebrow
+          index={2}
+          total={4}
+          title="Katalog Peminjaman"
+          desc="Penyewa dapat menelusuri alat satuan maupun paket hemat camping & piknik dengan pengecekan stok otomatis."
+        />
+        <button
+          type="button"
+          onClick={loadData}
+          disabled={loadingData}
+          title="Segarkan data dari server"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors"
+          style={{ color: C.forestDeep }}
+        >
+          <RefreshCw size={13} className={loadingData ? "animate-spin" : ""} />
+          <span>{loadingData ? "Memuat..." : "Refresh API"}</span>
+        </button>
+      </div>
 
       {/* Segmented Tab Switcher */}
       <div
@@ -91,6 +271,8 @@ export default function CatalogPage() {
           onClick={() => {
             setActiveTab("satuan");
             setSearchQuery("");
+            setSubmitError("");
+            setSubmitSuccess("");
           }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer"
           style={{
@@ -100,6 +282,7 @@ export default function CatalogPage() {
         >
           <PackageSearch size={16} style={{ color: activeTab === "satuan" ? C.amber : C.moss }} />
           Alat Satuan
+          Alat Satuan ({alatList.length})
         </button>
 
         <button
@@ -107,6 +290,8 @@ export default function CatalogPage() {
           onClick={() => {
             setActiveTab("bundle");
             setSearchQuery("");
+            setSubmitError("");
+            setSubmitSuccess("");
           }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer"
           style={{
@@ -116,6 +301,7 @@ export default function CatalogPage() {
         >
           <Sparkles size={16} style={{ color: activeTab === "bundle" ? C.amber : C.amberDeep }} />
           Paket Bundle
+          Paket Bundle ({paketList.length})
           <span
             className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
             style={{
@@ -127,6 +313,37 @@ export default function CatalogPage() {
           </span>
         </button>
       </div>
+
+      {/* Alert Notifikasi Pengajuan */}
+      {submitError && (
+        <div className="mb-6 p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle size={17} className="flex-shrink-0" />
+            <span>{submitError}</span>
+          </div>
+          <Link
+            href="/auth"
+            className="underline flex items-center gap-1 font-bold whitespace-nowrap text-red-800"
+          >
+            Ke Menu Masuk <ArrowRight size={13} />
+          </Link>
+        </div>
+      )}
+
+      {submitSuccess && (
+        <div className="mb-6 p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
+          <div className="flex items-center gap-2.5">
+            <CheckCircle2 size={17} className="flex-shrink-0" />
+            <span>{submitSuccess}</span>
+          </div>
+          <Link
+            href="/history"
+            className="underline flex items-center gap-1 font-bold whitespace-nowrap text-green-800"
+          >
+            Cek Riwayat Peminjaman <ArrowRight size={13} />
+          </Link>
+        </div>
+      )}
 
       {/* Konten Tab Alat Satuan */}
       {activeTab === "satuan" && (
@@ -176,6 +393,23 @@ export default function CatalogPage() {
                     <p
                       className="mt-3 text-sm font-semibold"
                       style={{ ...headingFont, color: currentAlat?.name === a.name ? C.paper : C.ink }}
+                {filteredAlat.map((a, i) => {
+                  const Icon = a.icon;
+                  const isSelected = currentAlat?.name === a.name;
+                  return (
+                    <button
+                      key={a.id_item || a.name}
+                      onClick={() => {
+                        setSelectedAlatIndex(i);
+                        setQty(1);
+                        setSubmitError("");
+                        setSubmitSuccess("");
+                      }}
+                      className="text-left rounded-2xl p-4 transition-all cursor-pointer"
+                      style={{
+                        backgroundColor: isSelected ? C.forestDeep : C.paper,
+                        border: `1px solid ${isSelected ? C.forestDeep : C.canvasDeep}`,
+                      }}
                     >
                       {a.name}
                     </p>
@@ -183,6 +417,10 @@ export default function CatalogPage() {
                       <span
                         className="text-xs"
                         style={{ ...bodyFont, color: currentAlat?.name === a.name ? "#CFE0D2" : "#8A8272" }}
+                      <Icon size={22} style={{ color: isSelected ? C.amber : C.moss }} />
+                      <p
+                        className="mt-3 text-sm font-semibold"
+                        style={{ ...headingFont, color: isSelected ? C.paper : C.ink }}
                       >
                         {a.price}
                       </span>
@@ -198,6 +436,28 @@ export default function CatalogPage() {
                     </div>
                   </button>
                 ))}
+                        {a.name}
+                      </p>
+                      <div className="flex items-center justify-between mt-1.5">
+                        <span
+                          className="text-xs"
+                          style={{ ...bodyFont, color: isSelected ? "#CFE0D2" : "#8A8272" }}
+                        >
+                          {a.price}
+                        </span>
+                        <span
+                          className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
+                          style={{
+                            backgroundColor: a.stock > 4 ? `${C.moss}22` : `${C.rust}22`,
+                            color: a.stock > 4 ? C.moss : C.rust,
+                          }}
+                        >
+                          Stok {a.stock}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -221,6 +481,14 @@ export default function CatalogPage() {
                     <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
                       12 Sep 2026
                     </div>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      min={todayStr}
+                      className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
+                      style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
@@ -229,6 +497,14 @@ export default function CatalogPage() {
                     <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
                       14 Sep 2026
                     </div>
+                    <input
+                      type="date"
+                      value={endDate}
+                      onChange={(e) => setEndDate(e.target.value)}
+                      min={startDate}
+                      className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
+                      style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                    />
                   </div>
                 </div>
 
@@ -236,11 +512,18 @@ export default function CatalogPage() {
                   <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
                     <Hash size={12} /> Jumlah alat
                   </label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-semibold flex items-center gap-1" style={{ ...bodyFont, color: "#5C5548" }}>
+                      <Hash size={12} /> Jumlah unit
+                    </label>
+                    <span className="text-[11px] text-stone-500">Maks: {currentAlat.stock} unit</span>
+                  </div>
                   <div className="flex items-center gap-3">
                     <button
                       type="button"
                       onClick={() => setQty(Math.max(1, qty - 1))}
                       className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer"
+                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-stone-200 transition-colors"
                       style={{ backgroundColor: C.canvas }}
                     >
                       <Minus size={14} />
@@ -252,6 +535,7 @@ export default function CatalogPage() {
                       type="button"
                       onClick={() => setQty(Math.min(currentAlat.stock, qty + 1))}
                       className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer"
+                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-stone-200 transition-colors"
                       style={{ backgroundColor: C.canvas }}
                     >
                       <Plus size={14} />
@@ -265,6 +549,19 @@ export default function CatalogPage() {
                 >
                   <CheckCircle2 size={14} />
                   Stok tersedia untuk tanggal yang dipilih
+                  Durasi: {rentDays} hari sewa ({startDate} s.d {endDate})
+                </div>
+
+                <div className="p-3 rounded-xl bg-white border border-stone-200 flex justify-between items-center">
+                  <div>
+                    <p className="text-[11px] text-stone-500">Total Perkiraan Biaya</p>
+                    <p className="text-base font-bold" style={{ ...headingFont, color: C.forestDeep }}>
+                      Rp{((currentAlat.rawPrice || 25000) * qty * rentDays).toLocaleString("id-ID")}
+                    </p>
+                  </div>
+                  <span className="text-[11px] text-stone-500">
+                    {qty} unit x {rentDays} hr
+                  </span>
                 </div>
               </div>
 
@@ -272,8 +569,14 @@ export default function CatalogPage() {
                 type="button"
                 className="w-full mt-6 py-3 rounded-full font-semibold text-sm cursor-pointer"
                 style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep }}
+                disabled={submitting || currentAlat.stock <= 0}
+                onClick={() => handleSewa("satuan")}
+                className="w-full mt-6 py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep, opacity: submitting ? 0.7 : 1 }}
               >
                 Kirim Pengajuan
+                {submitting && <Loader2 size={16} className="animate-spin" />}
+                {currentAlat.stock <= 0 ? "Stok Habis" : "Kirim Pengajuan Sewa"}
               </button>
             </div>
           )}
@@ -316,8 +619,14 @@ export default function CatalogPage() {
                   return (
                     <button
                       key={p.name}
+                      key={p.id_package || p.name}
                       type="button"
                       onClick={() => setSelectedBundleIndex(i)}
+                      onClick={() => {
+                        setSelectedBundleIndex(i);
+                        setSubmitError("");
+                        setSubmitSuccess("");
+                      }}
                       className="text-left rounded-2xl p-5 flex flex-col justify-between transition-all cursor-pointer min-h-[310px]"
                       style={{
                         backgroundColor: isSelected ? C.moss : C.paper,
@@ -381,6 +690,7 @@ export default function CatalogPage() {
             )}
 
             {/* Banner info tambahan agar area bawah tidak kosong */}
+            {/* Banner info tambahan */}
             <div
               className="mt-5 p-4 rounded-2xl flex items-center justify-between gap-4"
               style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}
@@ -438,6 +748,14 @@ export default function CatalogPage() {
                   <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
                     12 Sep 2026
                   </div>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    min={todayStr}
+                    className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
+                    style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
@@ -446,6 +764,14 @@ export default function CatalogPage() {
                   <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
                     14 Sep 2026
                   </div>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    min={startDate}
+                    className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
+                    style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                  />
                 </div>
               </div>
 
@@ -455,6 +781,7 @@ export default function CatalogPage() {
               >
                 <CheckCircle2 size={14} />
                 Seluruh alat dalam paket tersedia untuk tanggal ini
+                Durasi: {rentDays} hari sewa paket
               </div>
 
               <StitchDivider />
@@ -463,16 +790,25 @@ export default function CatalogPage() {
                   <p className="text-xs" style={{ ...bodyFont, color: "#8A8272" }}>Total sewa</p>
                   <p className="text-xl font-bold" style={{ ...headingFont, color: C.forestDeep }}>
                     {currentPaket.price}
+                    Rp{((currentPaket.rawPrice || 50000) * rentDays).toLocaleString("id-ID")}
                   </p>
                 </div>
                 <GearTag tone={C.rust}>{currentPaket.save} vs satuan</GearTag>
+                <GearTag tone={C.rust}>{currentPaket.save}</GearTag>
               </div>
+
               <button
                 type="button"
                 className="w-full py-3 rounded-full font-semibold text-sm cursor-pointer"
                 style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep }}
+                disabled={submitting}
+                onClick={() => handleSewa("bundle")}
+                className="w-full py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep, opacity: submitting ? 0.7 : 1 }}
               >
                 Sewa Sekarang — Semua Alat
+                {submitting && <Loader2 size={16} className="animate-spin" />}
+                Sewa Sekarang — Semua Alat Paket
               </button>
               <p className="text-[11px] text-center mt-3" style={{ ...bodyFont, color: "#8A8272" }}>
                 Satu pengajuan untuk seluruh alat di paket ini
