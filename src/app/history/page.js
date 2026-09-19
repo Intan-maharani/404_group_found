@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { Clock3, CheckCircle2, XCircle, Backpack, RotateCcw } from "lucide-react";
+import { useState, useEffect } from "react";
+import Link from "next/link";
+import { Clock3, CheckCircle2, XCircle, Backpack, RotateCcw, RefreshCw } from "lucide-react";
 import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow } from "../../components/Shared";
+import { apiFetch } from "../../lib/api";
 
 const statusMeta = {
   Pending: { label: "Pending", color: C.amberDeep, icon: Clock3, note: "Menunggu persetujuan manajemen" },
@@ -13,39 +15,117 @@ const statusMeta = {
   Returned: { label: "Returned", color: "#7B8A6E", icon: RotateCcw, note: "Alat sudah dikembalikan & diverifikasi" },
 };
 
-const riwayatAwal = [
-  { id: "CT-2026-091", alat: "Tenda Dome 4P", tanggal: "12–14 Sep 2026", status: "Pending" },
-  { id: "CT-2026-090", alat: "Coolbox 30L, Tikar Piknik", tanggal: "10–12 Sep 2026", status: "Approved" },
-  { id: "CT-2026-088", alat: "Kompor Portable", tanggal: "05–07 Sep 2026", status: "Rejected" },
-  { id: "CT-2026-085", alat: "Set Alat Masak Camping", tanggal: "01–03 Sep 2026", status: "Borrowed" },
-  { id: "CT-2026-081", alat: "Lampu Camping x3", tanggal: "28–30 Agu 2026", status: "Returned" },
+const defaultRiwayat = [
+  { id: "CT-2026-091", alat: "Tenda Dome 4P", tanggal: "12–14 Sep 2026", status: "Pending", total: "Rp90.000" },
+  { id: "CT-2026-090", alat: "Coolbox 30L, Tikar Piknik", tanggal: "10–12 Sep 2026", status: "Approved", total: "Rp70.000" },
+  { id: "CT-2026-088", alat: "Kompor Portable", tanggal: "05–07 Sep 2026", status: "Rejected", total: "Rp40.000" },
+  { id: "CT-2026-085", alat: "Set Alat Masak Camping", tanggal: "01–03 Sep 2026", status: "Borrowed", total: "Rp30.000" },
+  { id: "CT-2026-081", alat: "Lampu Camping x3", tanggal: "28–30 Agu 2026", status: "Returned", total: "Rp48.000" },
 ];
 
+function normalizeStatus(rawStatus = "") {
+  const s = String(rawStatus).toLowerCase();
+  if (s.includes("tunggu") || s === "pending") return "Pending";
+  if (s.includes("setuju") || s === "approved") return "Approved";
+  if (s.includes("tolak") || s === "rejected") return "Rejected";
+  if (s.includes("pinjam") || s === "borrowed") return "Borrowed";
+  if (s.includes("selesai") || s === "returned") return "Returned";
+  return "Pending";
+}
+
 export default function HistoryPage() {
-  const [selectedId, setSelectedId] = useState(riwayatAwal[0].id);
-  const current = riwayatAwal.find((r) => r.id === selectedId) || riwayatAwal[0];
-  const meta = statusMeta[current.status];
+  const [riwayat, setRiwayat] = useState(defaultRiwayat);
+  const [selectedId, setSelectedId] = useState(defaultRiwayat[0].id);
+  const [loading, setLoading] = useState(false);
+  const [isLiveApi, setIsLiveApi] = useState(false);
+
+  const loadBorrows = async () => {
+    setLoading(true);
+    try {
+      const res = await apiFetch("/borrows");
+      if (Array.isArray(res) && res.length > 0) {
+        const mapped = res.map((b, idx) => {
+          const id = b.id_borrow || b.id || `CT-${String(idx + 1).padStart(3, "0")}`;
+          const startDate = b.tanggal_pinjam || "Hari ini";
+          const endDate = b.tanggal_kembali || "Besok";
+          const totalHarga = b.total_harga ? `Rp${Number(b.total_harga).toLocaleString("id-ID")}` : "Rp0";
+
+          return {
+            id,
+            alat: b.nama_item || b.alat || `Peminjaman Alat Camping (${id.slice(0, 8)})`,
+            tanggal: `${startDate} s.d ${endDate}`,
+            status: normalizeStatus(b.status),
+            total: totalHarga,
+          };
+        });
+
+        // Tampilkan transaksi terbaru di atas
+        const sorted = mapped.reverse();
+        setRiwayat(sorted);
+        setSelectedId(sorted[0]?.id);
+        setIsLiveApi(true);
+      }
+    } catch (err) {
+      console.warn("Menggunakan data default karena backend borrows kosong atau belum login:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadBorrows();
+  }, []);
+
+  const current = riwayat.find((r) => r.id === selectedId) || riwayat[0] || defaultRiwayat[0];
+  const meta = statusMeta[current.status] || statusMeta.Pending;
 
   return (
     <div>
-      <SectionEyebrow
-        index={3}
-        total={4}
-        title="Daftar & Status Peminjaman"
-      />
+      <div className="flex items-start justify-between gap-4">
+        <SectionEyebrow
+          index={3}
+          total={4}
+          title="Daftar & Status Peminjaman"
+          desc="Pantau seluruh pengajuan sewa, tanggal pengembalian, dan konfirmasi verifikasi dari manajemen."
+        />
+        <button
+          type="button"
+          onClick={loadBorrows}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors flex-shrink-0"
+          style={{ color: C.forestDeep }}
+        >
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          <span>{loading ? "Memuat..." : "Refresh Status"}</span>
+        </button>
+      </div>
+
+      {isLiveApi && (
+        <div className="mb-5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
+          <span className="font-medium">✅ Menampilkan data transaksi aktual dari server backend ChillTime.</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 uppercase">Live API</span>
+        </div>
+      )}
 
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
         {/* Kolom Kiri: Daftar Riwayat Transaksi */}
         <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.canvasDeep}` }}>
-          <div className="px-5 py-3.5" style={{ backgroundColor: C.forestDeep, color: C.paper }}>
+          <div className="px-5 py-3.5 flex items-center justify-between" style={{ backgroundColor: C.forestDeep, color: C.paper }}>
             <p className="text-sm font-semibold" style={{ ...headingFont }}>
-              Daftar Riwayat Peminjaman
+              Daftar Riwayat Peminjaman ({riwayat.length})
             </p>
+            <Link
+              href="/catalog"
+              className="text-xs font-semibold underline flex items-center gap-1 opacity-90 hover:opacity-100"
+              style={{ color: C.amber }}
+            >
+              + Sewa Baru
+            </Link>
           </div>
 
-          <div className="divide-y" style={{ borderColor: C.canvasDeep, backgroundColor: "#fff" }}>
-            {riwayatAwal.map((item) => {
-              const s = statusMeta[item.status];
+          <div className="divide-y max-h-[460px] overflow-y-auto" style={{ borderColor: C.canvasDeep, backgroundColor: "#fff" }}>
+            {riwayat.map((item) => {
+              const s = statusMeta[item.status] || statusMeta.Pending;
               const isSelected = item.id === selectedId;
 
               return (
@@ -58,8 +138,8 @@ export default function HistoryPage() {
                     backgroundColor: isSelected ? C.paper : "#fff",
                   }}
                 >
-                  <div>
-                    <p className="text-sm font-semibold" style={{ ...headingFont, color: C.ink }}>
+                  <div className="pr-3">
+                    <p className="text-sm font-semibold truncate max-w-[220px] md:max-w-xs" style={{ ...headingFont, color: C.ink }}>
                       {item.alat}
                     </p>
                     <p className="text-xs mt-0.5" style={{ ...bodyFont, color: "#8A8272" }}>
@@ -68,7 +148,7 @@ export default function HistoryPage() {
                   </div>
 
                   <span
-                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full"
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
                     style={{
                       ...bodyFont,
                       backgroundColor: `${s.color}1A`,
@@ -96,9 +176,15 @@ export default function HistoryPage() {
           <h3 className="text-xl font-bold mt-1 mb-1" style={{ ...headingFont, color: C.forestDeep }}>
             {current.alat}
           </h3>
-          <p className="text-xs mb-5" style={{ ...bodyFont, color: "#8A8272" }}>
+          <p className="text-xs mb-3" style={{ ...bodyFont, color: "#8A8272" }}>
             ID: {current.id} · Periode: {current.tanggal}
           </p>
+
+          {current.total && (
+            <div className="mb-5 inline-block px-3 py-1 rounded-lg bg-white border border-stone-200 text-xs font-semibold text-stone-700">
+              Total Biaya: <span style={{ color: C.forestDeep }} className="font-bold">{current.total}</span>
+            </div>
+          )}
 
           {/* Kotak Status Aktif */}
           <div
@@ -118,7 +204,7 @@ export default function HistoryPage() {
 
           {/* Alur Tahapan Status */}
           <p className="text-xs font-semibold uppercase tracking-wide mb-3" style={{ ...bodyFont, color: "#8A8272" }}>
-            Pelacakan Status Pengajuan
+            Tahapan Pelacakan
           </p>
           <div className="space-y-2.5 text-xs" style={{ ...bodyFont }}>
             {["Pending", "Approved", "Borrowed", "Returned"].map((step) => {
@@ -128,7 +214,7 @@ export default function HistoryPage() {
               return (
                 <div
                   key={step}
-                  className="flex items-center gap-2.5 p-2 rounded-lg"
+                  className="flex items-center gap-2.5 p-2 rounded-lg transition-all"
                   style={{
                     backgroundColor: isCurrent ? "#fff" : "transparent",
                     border: isCurrent ? `1px solid ${C.canvasDeep}` : "1px solid transparent",

@@ -37,7 +37,7 @@ export function SectionEyebrow({ index, total, title, desc }) {
   );
 }
 
-export function Field({ label, placeholder, type = "text" }) {
+export function Field({ label, placeholder, type = "text", name, value, onChange, required = false, readOnly = false }) {
   return (
     <div>
       <label className="text-xs font-semibold block mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
@@ -45,8 +45,12 @@ export function Field({ label, placeholder, type = "text" }) {
       </label>
       <input
         type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
         placeholder={placeholder}
-        readOnly
+        required={required}
+        readOnly={readOnly}
         className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
         style={{ ...bodyFont, backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
       />
