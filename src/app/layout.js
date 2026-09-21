@@ -16,7 +16,7 @@ export default function RootLayout({ children }) {
       <body style={{ backgroundColor: C.canvas, minHeight: "100vh", margin: 0 }}>
         <div className="max-w-6xl mx-auto px-5 md:px-8 py-8">
           <header className="flex items-center justify-between mb-8">
-           
+            
             <Link 
               href="/" 
               className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"

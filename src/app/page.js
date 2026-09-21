@@ -70,7 +70,22 @@ export default function HomePage() {
 
   return (
     <div className="space-y-12 pb-12">
-      {/* 1. HERO SLIDER SECTION WITH IMAGE */}
+      
+      {/* --- JUDUL BESAR & TAGLINE BARU --- */}
+      <div className="text-center md:text-left mb-6">
+        <h1 
+          className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2"
+          style={{ color: C.forestDeep, ...headingFont }}
+        >
+           Chill Time
+        </h1>
+        <p className="text-lg md:text-xl font-medium italic" style={{ color: "#8A8272", ...bodyFont }}>
+          Take your time to enjoy :)
+        </p>
+      </div>
+
+       
+
       <section
         className="relative overflow-hidden rounded-3xl p-6 md:p-10 text-white shadow-xl transition-all duration-700 ease-in-out min-h-[420px] flex flex-col justify-between"
         style={{
