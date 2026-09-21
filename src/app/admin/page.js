@@ -23,7 +23,6 @@ const initialQueue = [
   { id: "CT-2026-094", user: "Putri A.", alat: "Set Alat Masak", tanggal: "14–16 Sep", status: "menunggu" },
   { id: "CT-2026-095", user: "Anisa M.", alat: "Coolbox 30L x2", tanggal: "15–16 Sep", status: "menunggu" },
 ];
-
 export default function AdminPage() {
   const [queue, setQueue] = useState(initialQueue);
   const [loading, setLoading] = useState(false);

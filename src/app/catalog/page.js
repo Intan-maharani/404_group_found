@@ -98,7 +98,6 @@ export default function CatalogPage() {
   const loadData = async () => {
     setLoadingData(true);
     try {
-      // 1. Fetch Items
       const itemsRes = await apiFetch("/items");
       if (Array.isArray(itemsRes) && itemsRes.length > 0) {
         const mapped = itemsRes.map((it) => {
@@ -116,7 +115,6 @@ export default function CatalogPage() {
         setAlatList(mapped);
       }
 
-      // 2. Fetch Packages
       const packagesRes = await apiFetch("/packages");
       if (Array.isArray(packagesRes) && packagesRes.length > 0) {
         const mappedPkgs = packagesRes.map((p, idx) => {
@@ -153,14 +151,34 @@ export default function CatalogPage() {
       p.items.some((it) => it.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  const currentAlat = filteredAlat[selectedAlatIndex] || filteredAlat[0];
-  const currentPaket = filteredPaket[selectedBundleIndex] || filteredPaket[0];
+  const safeAlatIndex = selectedAlatIndex >= filteredAlat.length ? 0 : selectedAlatIndex;
+  const safeBundleIndex = selectedBundleIndex >= filteredPaket.length ? 0 : selectedBundleIndex;
 
-  // Hitung durasi hari
-  const rentDays = Math.max(
-    1,
-    Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24)) || 1
-  );
+  const currentAlat = filteredAlat[safeAlatIndex];
+  const currentPaket = filteredPaket[safeBundleIndex];
+
+  // Handler pengubahan tanggal
+  const handleStartDateChange = (e) => {
+    const val = e.target.value;
+    setStartDate(val);
+    if (endDate < val) setEndDate(val);
+  };
+
+  const handleEndDateChange = (e) => {
+    const val = e.target.value;
+    if (val >= startDate) setEndDate(val);
+  };
+
+  const calculateDays = () => {
+    if (!startDate || !endDate) return 1;
+    const start = new Date(startDate).getTime();
+    const end = new Date(endDate).getTime();
+    if (isNaN(start) || isNaN(end) || end < start) return 1;
+    const diff = Math.ceil((end - start) / (1000 * 60 * 60 * 24));
+    return diff >= 0 ? diff + 1 : 1;
+  };
+
+  const rentDays = calculateDays();
 
   const handleSewa = async (type) => {
     setSubmitting(true);
@@ -176,27 +194,48 @@ export default function CatalogPage() {
       return;
     }
 
-    const user = JSON.parse(savedUser);
+    let user = {};
+    try {
+      user = JSON.parse(savedUser);
+    } catch {
+      user = {};
+    }
+
+    const userId = user.id_user || user.id || user._id;
+
+    if (!userId) {
+      setSubmitError("Sesi pengguna tidak valid. Silakan login kembali.");
+      setSubmitting(false);
+      return;
+    }
+
     const isSatuan = type === "satuan";
     const selectedItem = isSatuan ? currentAlat : currentPaket;
+
+    if (!selectedItem) {
+      setSubmitError("Item yang dipilih tidak valid.");
+      setSubmitting(false);
+      return;
+    }
+
     const itemPrice = selectedItem?.rawPrice || 25000;
     const totalHarga = isSatuan ? itemPrice * qty * rentDays : itemPrice * rentDays;
 
     try {
+      // PENTING: Key dikirim sesuai kebutuhan Backend (id_user, tanggal_mulai_sewa, tanggal_selesai_sewa)
       const borrowRes = await apiFetch("/borrows", {
         method: "POST",
         body: JSON.stringify({
-          id_user: user.id || user.id_user || "guest-user-404",
-          tanggal_pinjam: startDate,
-          tanggal_kembali: endDate,
+          id_user: userId,
+          tanggal_mulai_sewa: startDate,
+          tanggal_selesai_sewa: endDate,
           status: "menunggu",
           total_harga: totalHarga,
         }),
       });
 
-      const borrowId = borrowRes.id_borrow || borrowRes.id || `CT-${Date.now().toString().slice(-4)}`;
+      const borrowId = borrowRes?.id_borrow || borrowRes?.id || `CT-${Date.now().toString().slice(-4)}`;
 
-      // Simpan rincian unit jika ada endpoint borrows_details
       try {
         await apiFetch("/borrows_details", {
           method: "POST",
@@ -208,14 +247,14 @@ export default function CatalogPage() {
           }),
         });
       } catch {
-        // Toleransi jika borrows_details opsional
+        // Abaikan error jika endpoint detail opsional
       }
 
       setSubmitSuccess(
         `Pengajuan peminjaman "${selectedItem.name}" berhasil dikirim! ID Transaksi: ${borrowId}`
       );
     } catch (err) {
-      setSubmitError(err.message || "Gagal mengirim pengajuan sewa. Silakan coba lagi.");
+      setSubmitError(err?.message || "Gagal mengirim pengajuan sewa. Silakan coba lagi.");
     } finally {
       setSubmitting(false);
     }
@@ -243,7 +282,6 @@ export default function CatalogPage() {
         </button>
       </div>
 
-      {/* Segmented Tab Switcher */}
       <div
         className="flex items-center gap-2 p-1.5 rounded-2xl mb-6 w-fit"
         style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}
@@ -255,6 +293,8 @@ export default function CatalogPage() {
             setSearchQuery("");
             setSubmitError("");
             setSubmitSuccess("");
+            setSelectedAlatIndex(0);
+            setQty(1);
           }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer"
           style={{
@@ -273,6 +313,7 @@ export default function CatalogPage() {
             setSearchQuery("");
             setSubmitError("");
             setSubmitSuccess("");
+            setSelectedBundleIndex(0);
           }}
           className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs md:text-sm font-semibold transition-all cursor-pointer"
           style={{
@@ -294,7 +335,6 @@ export default function CatalogPage() {
         </button>
       </div>
 
-      {/* Alert Notifikasi Pengajuan */}
       {submitError && (
         <div className="mb-6 p-4 rounded-2xl flex items-center justify-between gap-3 text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
           <div className="flex items-center gap-2.5">
@@ -325,7 +365,6 @@ export default function CatalogPage() {
         </div>
       )}
 
-      {/* Konten Tab Alat Satuan */}
       {activeTab === "satuan" && (
         <div className="grid lg:grid-cols-[1.5fr_1fr] gap-8">
           <div>
@@ -358,10 +397,11 @@ export default function CatalogPage() {
               <div className="grid sm:grid-cols-2 gap-3">
                 {filteredAlat.map((a, i) => {
                   const Icon = a.icon;
-                  const isSelected = currentAlat?.name === a.name;
+                  const isSelected = currentAlat?.id_item === a.id_item || currentAlat?.name === a.name;
                   return (
                     <button
                       key={a.id_item || a.name}
+                      type="button"
                       onClick={() => {
                         setSelectedAlatIndex(i);
                         setQty(1);
@@ -405,7 +445,6 @@ export default function CatalogPage() {
             )}
           </div>
 
-          {/* Form Pengajuan Alat Satuan */}
           {currentAlat && (
             <div className="rounded-2xl p-6 h-fit" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
               <h3 className="text-lg font-bold mb-1" style={{ ...headingFont, color: C.forestDeep }}>
@@ -424,10 +463,10 @@ export default function CatalogPage() {
                     <input
                       type="date"
                       value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      onChange={handleStartDateChange}
                       min={todayStr}
-                      className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
-                      style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                      className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer border border-stone-200"
+                      style={{ backgroundColor: "#fff", color: C.ink }}
                     />
                   </div>
                   <div>
@@ -437,10 +476,10 @@ export default function CatalogPage() {
                     <input
                       type="date"
                       value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
+                      onChange={handleEndDateChange}
                       min={startDate}
-                      className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
-                      style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                      className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer border border-stone-200"
+                      style={{ backgroundColor: "#fff", color: C.ink }}
                     />
                   </div>
                 </div>
@@ -466,7 +505,7 @@ export default function CatalogPage() {
                     </span>
                     <button
                       type="button"
-                      onClick={() => setQty(Math.min(currentAlat.stock, qty + 1))}
+                      onClick={() => setQty(Math.min(currentAlat.stock || 1, qty + 1))}
                       className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-stone-200 transition-colors"
                       style={{ backgroundColor: C.canvas }}
                     >
@@ -500,8 +539,8 @@ export default function CatalogPage() {
                 type="button"
                 disabled={submitting || currentAlat.stock <= 0}
                 onClick={() => handleSewa("satuan")}
-                className="w-full mt-6 py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
-                style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep, opacity: submitting ? 0.7 : 1 }}
+                className="w-full mt-6 py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:cursor-not-allowed"
+                style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep, opacity: submitting || currentAlat.stock <= 0 ? 0.7 : 1 }}
               >
                 {submitting && <Loader2 size={16} className="animate-spin" />}
                 {currentAlat.stock <= 0 ? "Stok Habis" : "Kirim Pengajuan Sewa"}
@@ -511,7 +550,6 @@ export default function CatalogPage() {
         </div>
       )}
 
-      {/* Konten Tab Paket Bundle */}
       {activeTab === "bundle" && (
         <div className="grid lg:grid-cols-[1.4fr_1fr] gap-8 items-start">
           <div className="flex flex-col">
@@ -543,7 +581,7 @@ export default function CatalogPage() {
             ) : (
               <div className="grid sm:grid-cols-3 gap-4">
                 {filteredPaket.map((p, i) => {
-                  const isSelected = currentPaket?.name === p.name;
+                  const isSelected = currentPaket?.id_package === p.id_package || currentPaket?.name === p.name;
                   return (
                     <button
                       key={p.id_package || p.name}
@@ -615,7 +653,6 @@ export default function CatalogPage() {
               </div>
             )}
 
-            {/* Banner info tambahan */}
             <div
               className="mt-5 p-4 rounded-2xl flex items-center justify-between gap-4"
               style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}
@@ -639,7 +676,6 @@ export default function CatalogPage() {
             </div>
           </div>
 
-          {/* Kolom Detail & Pengajuan Paket */}
           {currentPaket && (
             <div
               className="rounded-2xl p-6 h-fit"
@@ -664,7 +700,6 @@ export default function CatalogPage() {
                 ))}
               </ul>
 
-              {/* Tanggal Sewa Paket */}
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <div>
                   <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
@@ -673,10 +708,10 @@ export default function CatalogPage() {
                   <input
                     type="date"
                     value={startDate}
-                    onChange={(e) => setStartDate(e.target.value)}
+                    onChange={handleStartDateChange}
                     min={todayStr}
-                    className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
-                    style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                    className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer border border-stone-200"
+                    style={{ backgroundColor: "#fff", color: C.ink }}
                   />
                 </div>
                 <div>
@@ -686,10 +721,10 @@ export default function CatalogPage() {
                   <input
                     type="date"
                     value={endDate}
-                    onChange={(e) => setEndDate(e.target.value)}
+                    onChange={handleEndDateChange}
                     min={startDate}
-                    className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer"
-                    style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
+                    className="w-full px-3 py-2 rounded-lg text-xs outline-none cursor-pointer border border-stone-200"
+                    style={{ backgroundColor: "#fff", color: C.ink }}
                   />
                 </div>
               </div>
@@ -717,7 +752,7 @@ export default function CatalogPage() {
                 type="button"
                 disabled={submitting}
                 onClick={() => handleSewa("bundle")}
-                className="w-full py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
+                className="w-full py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90 disabled:cursor-not-allowed"
                 style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep, opacity: submitting ? 0.7 : 1 }}
               >
                 {submitting && <Loader2 size={16} className="animate-spin" />}
