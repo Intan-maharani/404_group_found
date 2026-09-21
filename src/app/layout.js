@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import Link from "next/link";
 import { Tent } from "lucide-react";
 import Nav from "../components/Nav";
 import { GearTag } from "../components/Shared";
@@ -16,7 +16,11 @@ export default function RootLayout({ children }) {
       <body style={{ backgroundColor: C.canvas, minHeight: "100vh", margin: 0 }}>
         <div className="max-w-6xl mx-auto px-5 md:px-8 py-8">
           <header className="flex items-center justify-between mb-8">
-            <div className="flex items-center gap-2.5">
+           
+            <Link 
+              href="/" 
+              className="flex items-center gap-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+            >
               <div
                 className="w-9 h-9 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: C.forestDeep }}
@@ -31,7 +35,7 @@ export default function RootLayout({ children }) {
                   404 Group Found
                 </p>
               </div>
-            </div>
+            </Link>
           </header>
 
           <div className="grid md:grid-cols-[220px_1fr] gap-8">
