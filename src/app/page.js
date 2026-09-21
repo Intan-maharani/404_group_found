@@ -441,7 +441,7 @@ export default function HomePage() {
           Jangan biarkan rencana camping kamu tertunda. Cek ketersediaan alat sekarang sebelum kehabisan stok!
         </p>
         <Link
-          href="/catalog"
+          href="/auth"
           className="px-8 py-3.5 rounded-full font-bold text-xs md:text-sm text-white transition-opacity hover:opacity-90 shadow-md cursor-pointer"
           style={{ backgroundColor: C.forestDeep, ...bodyFont }}
         >
