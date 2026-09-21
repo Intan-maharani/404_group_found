@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
@@ -27,13 +26,6 @@ import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow, GearTag, StitchDivider } from "../../components/Shared";
 import { apiFetch } from "../../lib/api";
 
-const alatList = [
-  { name: "Coolbox 30L", icon: PackageSearch, stock: 6, price: "Rp25.000/hari" },
-  { name: "Tikar Piknik", icon: LayoutGrid, stock: 12, price: "Rp10.000/hari" },
-  { name: "Kompor Portable", icon: Flame, stock: 4, price: "Rp20.000/hari" },
-  { name: "Tenda Dome 4P", icon: Tent, stock: 3, price: "Rp45.000/hari" },
-  { name: "Lampu Camping", icon: Lamp, stock: 9, price: "Rp8.000/hari" },
-  { name: "Set Alat Masak", icon: Utensils, stock: 5, price: "Rp15.000/hari" },
 const initialAlatList = [
   { id_item: "coolbox-30l", name: "Coolbox 30L", icon: PackageSearch, stock: 6, price: "Rp25.000/hari", rawPrice: 25000 },
   { id_item: "tikar-piknik", name: "Tikar Piknik", icon: LayoutGrid, stock: 12, price: "Rp10.000/hari", rawPrice: 10000 },
@@ -43,7 +35,6 @@ const initialAlatList = [
   { id_item: "set-alat-masak", name: "Set Alat Masak", icon: Utensils, stock: 5, price: "Rp15.000/hari", rawPrice: 15000 },
 ];
 
-const paket = [
 const initialPaket = [
   {
     id_package: "pkg-solo",
@@ -84,7 +75,6 @@ function getIconByName(name = "") {
 export default function CatalogPage() {
   const [activeTab, setActiveTab] = useState("satuan");
   const [searchQuery, setSearchQuery] = useState("");
-  
 
   const [alatList, setAlatList] = useState(initialAlatList);
   const [paketList, setPaketList] = useState(initialPaket);
@@ -92,7 +82,6 @@ export default function CatalogPage() {
 
   const [qty, setQty] = useState(1);
   const [selectedAlatIndex, setSelectedAlatIndex] = useState(0);
-
   const [selectedBundleIndex, setSelectedBundleIndex] = useState(0);
 
   // Tanggal sewa
@@ -158,7 +147,6 @@ export default function CatalogPage() {
     a.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const filteredPaket = paket.filter(
   const filteredPaket = paketList.filter(
     (p) =>
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -235,12 +223,6 @@ export default function CatalogPage() {
 
   return (
     <div>
-      <SectionEyebrow
-        index={2}
-        total={4}
-        title="Katalog Peminjaman"
-        desc="Penyewa dapat menelusuri alat satuan maupun paket hemat camping & piknik dengan pengecekan stok otomatis."
-      />
       <div className="flex items-start justify-between gap-4">
         <SectionEyebrow
           index={2}
@@ -253,7 +235,7 @@ export default function CatalogPage() {
           onClick={loadData}
           disabled={loadingData}
           title="Segarkan data dari server"
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors flex-shrink-0"
           style={{ color: C.forestDeep }}
         >
           <RefreshCw size={13} className={loadingData ? "animate-spin" : ""} />
@@ -281,7 +263,6 @@ export default function CatalogPage() {
           }}
         >
           <PackageSearch size={16} style={{ color: activeTab === "satuan" ? C.amber : C.moss }} />
-          Alat Satuan
           Alat Satuan ({alatList.length})
         </button>
 
@@ -300,7 +281,6 @@ export default function CatalogPage() {
           }}
         >
           <Sparkles size={16} style={{ color: activeTab === "bundle" ? C.amber : C.amberDeep }} />
-          Paket Bundle
           Paket Bundle ({paketList.length})
           <span
             className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
@@ -376,23 +356,6 @@ export default function CatalogPage() {
               </div>
             ) : (
               <div className="grid sm:grid-cols-2 gap-3">
-                {filteredAlat.map((a, i) => (
-                  <button
-                    key={a.name}
-                    onClick={() => {
-                      setSelectedAlatIndex(i);
-                      setQty(1);
-                    }}
-                    className="text-left rounded-2xl p-4 transition-all cursor-pointer"
-                    style={{
-                      backgroundColor: currentAlat?.name === a.name ? C.forestDeep : C.paper,
-                      border: `1px solid ${currentAlat?.name === a.name ? C.forestDeep : C.canvasDeep}`,
-                    }}
-                  >
-                    <a.icon size={22} style={{ color: currentAlat?.name === a.name ? C.amber : C.moss }} />
-                    <p
-                      className="mt-3 text-sm font-semibold"
-                      style={{ ...headingFont, color: currentAlat?.name === a.name ? C.paper : C.ink }}
                 {filteredAlat.map((a, i) => {
                   const Icon = a.icon;
                   const isSelected = currentAlat?.name === a.name;
@@ -411,31 +374,11 @@ export default function CatalogPage() {
                         border: `1px solid ${isSelected ? C.forestDeep : C.canvasDeep}`,
                       }}
                     >
-                      {a.name}
-                    </p>
-                    <div className="flex items-center justify-between mt-1.5">
-                      <span
-                        className="text-xs"
-                        style={{ ...bodyFont, color: currentAlat?.name === a.name ? "#CFE0D2" : "#8A8272" }}
                       <Icon size={22} style={{ color: isSelected ? C.amber : C.moss }} />
                       <p
                         className="mt-3 text-sm font-semibold"
                         style={{ ...headingFont, color: isSelected ? C.paper : C.ink }}
                       >
-                        {a.price}
-                      </span>
-                      <span
-                        className="text-[11px] font-semibold px-2 py-0.5 rounded-full"
-                        style={{
-                          backgroundColor: a.stock > 4 ? `${C.moss}22` : `${C.rust}22`,
-                          color: a.stock > 4 ? C.moss : C.rust,
-                        }}
-                      >
-                        Stok {a.stock}
-                      </span>
-                    </div>
-                  </button>
-                ))}
                         {a.name}
                       </p>
                       <div className="flex items-center justify-between mt-1.5">
@@ -478,9 +421,6 @@ export default function CatalogPage() {
                     <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
                       <Calendar size={12} /> Tgl mulai
                     </label>
-                    <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
-                      12 Sep 2026
-                    </div>
                     <input
                       type="date"
                       value={startDate}
@@ -494,9 +434,6 @@ export default function CatalogPage() {
                     <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
                       <Calendar size={12} /> Tgl kembali
                     </label>
-                    <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
-                      14 Sep 2026
-                    </div>
                     <input
                       type="date"
                       value={endDate}
@@ -509,9 +446,6 @@ export default function CatalogPage() {
                 </div>
 
                 <div>
-                  <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
-                    <Hash size={12} /> Jumlah alat
-                  </label>
                   <div className="flex justify-between items-center mb-1.5">
                     <label className="text-xs font-semibold flex items-center gap-1" style={{ ...bodyFont, color: "#5C5548" }}>
                       <Hash size={12} /> Jumlah unit
@@ -522,7 +456,6 @@ export default function CatalogPage() {
                     <button
                       type="button"
                       onClick={() => setQty(Math.max(1, qty - 1))}
-                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer"
                       className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-stone-200 transition-colors"
                       style={{ backgroundColor: C.canvas }}
                     >
@@ -534,7 +467,6 @@ export default function CatalogPage() {
                     <button
                       type="button"
                       onClick={() => setQty(Math.min(currentAlat.stock, qty + 1))}
-                      className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer"
                       className="w-9 h-9 rounded-full flex items-center justify-center cursor-pointer hover:bg-stone-200 transition-colors"
                       style={{ backgroundColor: C.canvas }}
                     >
@@ -548,7 +480,6 @@ export default function CatalogPage() {
                   style={{ backgroundColor: `${C.moss}18`, color: C.moss }}
                 >
                   <CheckCircle2 size={14} />
-                  Stok tersedia untuk tanggal yang dipilih
                   Durasi: {rentDays} hari sewa ({startDate} s.d {endDate})
                 </div>
 
@@ -567,14 +498,11 @@ export default function CatalogPage() {
 
               <button
                 type="button"
-                className="w-full mt-6 py-3 rounded-full font-semibold text-sm cursor-pointer"
-                style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep }}
                 disabled={submitting || currentAlat.stock <= 0}
                 onClick={() => handleSewa("satuan")}
                 className="w-full mt-6 py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
                 style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep, opacity: submitting ? 0.7 : 1 }}
               >
-                Kirim Pengajuan
                 {submitting && <Loader2 size={16} className="animate-spin" />}
                 {currentAlat.stock <= 0 ? "Stok Habis" : "Kirim Pengajuan Sewa"}
               </button>
@@ -618,10 +546,8 @@ export default function CatalogPage() {
                   const isSelected = currentPaket?.name === p.name;
                   return (
                     <button
-                      key={p.name}
                       key={p.id_package || p.name}
                       type="button"
-                      onClick={() => setSelectedBundleIndex(i)}
                       onClick={() => {
                         setSelectedBundleIndex(i);
                         setSubmitError("");
@@ -689,7 +615,6 @@ export default function CatalogPage() {
               </div>
             )}
 
-            {/* Banner info tambahan agar area bawah tidak kosong */}
             {/* Banner info tambahan */}
             <div
               className="mt-5 p-4 rounded-2xl flex items-center justify-between gap-4"
@@ -745,9 +670,6 @@ export default function CatalogPage() {
                   <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
                     <Calendar size={12} /> Tgl mulai sewa
                   </label>
-                  <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
-                    12 Sep 2026
-                  </div>
                   <input
                     type="date"
                     value={startDate}
@@ -761,9 +683,6 @@ export default function CatalogPage() {
                   <label className="text-xs font-semibold flex items-center gap-1 mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
                     <Calendar size={12} /> Tgl sewa kembali
                   </label>
-                  <div className="px-3 py-2 rounded-lg text-sm" style={{ backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}` }}>
-                    14 Sep 2026
-                  </div>
                   <input
                     type="date"
                     value={endDate}
@@ -780,7 +699,6 @@ export default function CatalogPage() {
                 style={{ backgroundColor: `${C.moss}18`, color: C.moss }}
               >
                 <CheckCircle2 size={14} />
-                Seluruh alat dalam paket tersedia untuk tanggal ini
                 Durasi: {rentDays} hari sewa paket
               </div>
 
@@ -789,24 +707,19 @@ export default function CatalogPage() {
                 <div>
                   <p className="text-xs" style={{ ...bodyFont, color: "#8A8272" }}>Total sewa</p>
                   <p className="text-xl font-bold" style={{ ...headingFont, color: C.forestDeep }}>
-                    {currentPaket.price}
                     Rp{((currentPaket.rawPrice || 50000) * rentDays).toLocaleString("id-ID")}
                   </p>
                 </div>
-                <GearTag tone={C.rust}>{currentPaket.save} vs satuan</GearTag>
                 <GearTag tone={C.rust}>{currentPaket.save}</GearTag>
               </div>
 
               <button
                 type="button"
-                className="w-full py-3 rounded-full font-semibold text-sm cursor-pointer"
-                style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep }}
                 disabled={submitting}
                 onClick={() => handleSewa("bundle")}
                 className="w-full py-3 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-opacity hover:opacity-90"
                 style={{ ...bodyFont, backgroundColor: C.amber, color: C.forestDeep, opacity: submitting ? 0.7 : 1 }}
               >
-                Sewa Sekarang — Semua Alat
                 {submitting && <Loader2 size={16} className="animate-spin" />}
                 Sewa Sekarang — Semua Alat Paket
               </button>
