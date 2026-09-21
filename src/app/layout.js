@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Tent } from "lucide-react";
 import Nav from "../components/Nav";
 import { GearTag } from "../components/Shared";
