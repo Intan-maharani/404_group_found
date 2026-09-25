@@ -71,17 +71,44 @@ export default function HistoryPage() {
           const endDate = b.tanggal_selesai_sewa || b.tanggal_kembali || "Besok";
           const totalHarga = b.total_harga ? `Rp${Number(b.total_harga).toLocaleString("id-ID")}` : "Rp0";
 
-          // Cek jika ada override status dari Admin
-          const statusRaw = localOverrides[displayId] || localOverrides[realId] || b.status;
+let statusRaw = localOverrides[displayId] || localOverrides[realId] || b.status;
 
-          return {
-            realId,
-            id: displayId,
-            alat: b.nama_item || b.alat || `Peminjaman Alat Camping (${displayId})`,
-            tanggal: `${startDate} s.d ${endDate}`,
-            status: normalizeStatus(statusRaw),
-            total: totalHarga,
-          };
+const normalized = normalizeStatus(statusRaw);
+
+if (normalized === "Approved") {
+  
+  const rawStart = b.tanggal_mulai_sewa || b.tanggal_pinjam;
+  const rawEnd = b.tanggal_selesai_sewa || b.tanggal_kembali;
+
+  if (rawStart && rawEnd) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    
+    const start = new Date(String(rawStart).replace(/-/g, "/"));
+    const end = new Date(String(rawEnd).replace(/-/g, "/"));
+
+    start.setHours(0, 0, 0, 0);
+    end.setHours(0, 0, 0, 0);
+
+    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+      if (today >= start && today <= end) {
+        statusRaw = "Borrowed"; 
+      } else if (today > end) {
+        statusRaw = "Returned"; 
+      }
+    }
+  }
+}
+
+return {
+  realId,
+  id: displayId,
+  alat: b.nama_item || b.alat || `Peminjaman Alat Camping (${displayId})`,
+  tanggal: `${startDate} s.d ${endDate}`,
+  status: normalizeStatus(statusRaw),
+  total: totalHarga,
+};
         });
 
         const sorted = mapped.reverse();
@@ -101,8 +128,7 @@ export default function HistoryPage() {
 
   useEffect(() => {
     loadBorrows();
-
-    // Auto-Polling Real-time setiap 2 detik
+ 
     const intervalId = setInterval(() => {
       loadBorrows(true);
     }, 2000);
@@ -301,7 +327,7 @@ export default function HistoryPage() {
           </div>
 
           <div className="space-y-2.5 text-xs" style={{ ...bodyFont }}>
-            {["Pending", "Approved", "Borrowed", "Returned"].map((step) => {
+            {["Pending", "Approved", "Borrowed", "Returned", "Rejected"].map((step) => {
               const isCurrentStatus = current && step === current.status;
               const isSelectedFilter = activeFilter === step;
               const stepInfo = statusMeta[step];

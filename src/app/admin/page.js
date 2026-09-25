@@ -19,10 +19,23 @@ function normalizeStatus(rawStatus = "") {
   if (s.includes("tolak") || s.includes("reject") || s === "ditolak") {
     return "Rejected";
   }
-  if (s.includes("pinjam") || s.includes("borrow") || s === "dipinjam") {
+
+  if (
+    s.includes("pinjam") ||
+    s.includes("borrow") ||
+    s === "dipinjam" ||
+    s === "active" ||
+    s === "ongoing"
+  ) {
     return "Borrowed";
   }
-  if (s.includes("selesai") || s.includes("return") || s === "dikembalikan") {
+  if (
+    s.includes("selesai") ||
+    s.includes("return") ||
+    s === "dikembalikan" ||
+    s === "done" ||
+    s === "completed"
+  ) {
     return "Returned";
   }
   return "Pending";
