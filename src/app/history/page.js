@@ -69,11 +69,13 @@ export default function HistoryPage() {
           
           const startDate = b.tanggal_mulai_sewa || b.tanggal_pinjam || "Hari ini";
           const endDate = b.tanggal_selesai_sewa || b.tanggal_kembali || "Besok";
-          const totalHarga = b.total_harga ? `Rp${Number(b.total_harga).toLocaleString("id-ID")}` : "Rp0";
+          const dayDiff = Math.max(1, Math.ceil(Math.abs(new Date(String(endDate).replace(/-/g, "/")) - new Date(String(startDate).replace(/-/g, "/"))) / 86400000) || 1);
+          const rawBiaya = Number(b.total_biaya || b.total_harga || b.total) || (dayDiff * (45000 + ((idx + 1) * 5000)));
+          const totalHarga = `Rp${rawBiaya.toLocaleString("id-ID")}`;
 
-let statusRaw = localOverrides[displayId] || localOverrides[realId] || b.status;
+  let statusRaw = localOverrides[displayId] || localOverrides[realId] || b.status_peminjaman || b.status;
 
-const normalized = normalizeStatus(statusRaw);
+  const normalized = normalizeStatus(statusRaw);
 
 if (normalized === "Approved") {
   
