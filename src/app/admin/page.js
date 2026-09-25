@@ -1,74 +1,92 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import {
-  ClipboardList,
-  CheckCircle2,
-  XCircle,
-  Backpack,
-  Clock3,
-  Users,
-  ShieldCheck,
-  RefreshCw,
-  Loader2,
-  Check,
-} from "lucide-react";
-import { C, headingFont, bodyFont } from "../../lib/tokens";
-import { SectionEyebrow } from "../../components/Shared";
+import { Check, X, RefreshCw, Clock, Users, Tent } from "lucide-react";
+import { C, headingFont } from "../../lib/tokens";
 import { apiFetch } from "../../lib/api";
 
-const initialQueue = [
-  { id: "CT-2026-091", user: "Intan M.", alat: "Tenda Dome 4P", tanggal: "12–14 Sep", status: "menunggu" },
-  { id: "CT-2026-093", user: "Widya A.", alat: "Coolbox 30L x2", tanggal: "13–15 Sep", status: "menunggu" },
-  { id: "CT-2026-094", user: "Putri A.", alat: "Set Alat Masak", tanggal: "14–16 Sep", status: "menunggu" },
-  { id: "CT-2026-095", user: "Anisa M.", alat: "Coolbox 30L x2", tanggal: "15–16 Sep", status: "menunggu" },
-];
+function normalizeStatus(rawStatus = "") {
+  const s = String(rawStatus).toLowerCase().trim();
+  if (
+    s.includes("setuju") ||
+    s.includes("approve") ||
+    s === "disetujui" ||
+    s === "approved" ||
+    s === "acc"
+  ) {
+    return "Approved";
+  }
+  if (s.includes("tolak") || s.includes("reject") || s === "ditolak") {
+    return "Rejected";
+  }
+  if (s.includes("pinjam") || s.includes("borrow") || s === "dipinjam") {
+    return "Borrowed";
+  }
+  if (s.includes("selesai") || s.includes("return") || s === "dikembalikan") {
+    return "Returned";
+  }
+  return "Pending";
+}
+
+const defaultBorrows = [];
+
 export default function AdminPage() {
-  const [queue, setQueue] = useState(initialQueue);
+  const [borrows, setBorrows] = useState(defaultBorrows);
   const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState(null);
-  const [bannerMsg, setBannerMsg] = useState("");
-  const [returnConfirmed, setReturnConfirmed] = useState(false);
+  const [isLiveApi, setIsLiveApi] = useState(false);
 
-  // Statistik
-  const [stats, setStats] = useState({
-    dipinjam: 4,
-    menunggu: 4,
-    totalPenyewa: 404,
-  });
+  // State Modal Popup Interaktif
+  const [showModal, setShowModal] = useState(false);
+  const [modalType, setModalType] = useState("borrowed"); // 'borrowed' | 'pending' | 'users'
+  const [modalTitle, setModalTitle] = useState("");
 
+  // 1. Fetch Data Peminjaman Real-time dari Backend
   const loadAdminData = async () => {
     setLoading(true);
     try {
-      const borrows = await apiFetch("/borrows");
-      if (Array.isArray(borrows) && borrows.length > 0) {
-        const pending = borrows.filter(
-          (b) => String(b.status).toLowerCase().includes("tunggu") || b.status === "pending" || b.status === "menunggu"
-        );
+      const res = await apiFetch("/borrows");
 
-        const activeBorrowed = borrows.filter(
-          (b) => String(b.status).toLowerCase().includes("pinjam") || b.status === "dipinjam"
+      // Ambil override status lokal jika ada
+      let localOverrides = {};
+      try {
+        localOverrides = JSON.parse(
+          localStorage.getItem("admin_status_overrides") || "{}"
         );
+      } catch {
+        localOverrides = {};
+      }
 
-        setStats({
-          dipinjam: activeBorrowed.length || 2,
-          menunggu: pending.length,
-          totalPenyewa: Math.max(404, borrows.length * 15),
+      if (Array.isArray(res) && res.length > 0) {
+        const mapped = res.map((b, idx) => {
+          const displayId = `CT-${String(idx + 1).padStart(3, "0")}`;
+          const realId = b.id_borrow || b.id || displayId;
+
+          const startDate =
+            b.tanggal_mulai_sewa || b.tanggal_pinjam || "Hari ini";
+          const endDate =
+            b.tanggal_selesai_sewa || b.tanggal_kembali || "Besok";
+
+          // Gunakan status override jika pernah diubah oleh admin
+          const rawStatus =
+            localOverrides[displayId] || localOverrides[realId] || b.status;
+
+          return {
+            realId,
+            id: displayId,
+            alat: b.nama_item || b.alat || `Peminjaman Alat Camping (${displayId})`,
+            peminjam: b.nama_pemohon || b.user || b.peminjam || "Penyewa Anonim",
+            tanggal: `${startDate} s.d ${endDate}`,
+            status: normalizeStatus(rawStatus),
+          };
         });
-
-        if (pending.length > 0) {
-          const mappedPending = pending.map((b, idx) => ({
-            id: b.id_borrow || b.id || `CT-AP-${idx + 1}`,
-            user: b.id_user ? `Penyewa (${b.id_user.slice(0, 8)})` : "Penyewa ChillTime",
-            alat: b.nama_item || b.alat || `Peminjaman Alat (${b.id_borrow || idx + 1})`,
-            tanggal: `${b.tanggal_pinjam || "12 Sep"} – ${b.tanggal_kembali || "14 Sep"}`,
-            status: "menunggu",
-          }));
-          setQueue(mappedPending);
-        }
+        setBorrows(mapped.reverse());
+        setIsLiveApi(true);
+      } else {
+        setBorrows([]);
       }
     } catch (err) {
-      console.warn("Menggunakan antrean bawaan karena API borrows kosong/perlu otorisasi:", err);
+      console.warn("Backend /borrows kosong atau tidak dapat dijangkau:", err);
+      setBorrows([]);
     } finally {
       setLoading(false);
     }
@@ -78,221 +96,415 @@ export default function AdminPage() {
     loadAdminData();
   }, []);
 
-  const handleDecision = async (id, status) => {
-    setActionLoading(id);
-    setBannerMsg("");
+  // 2. Perhitungan Statistik Real-Time
+  const alatDipinjamList = borrows.filter(
+    (b) => b.status === "Borrowed" || b.status === "Approved"
+  );
+  const pendingList = borrows.filter((b) => b.status === "Pending");
 
-    let staffId = "staff-01";
+  // Kelompokkan Penyewa Unik
+  const activeRentersMap = borrows.reduce((acc, curr) => {
+    if (!acc[curr.peminjam]) {
+      acc[curr.peminjam] = [];
+    }
+    acc[curr.peminjam].push(curr);
+    return acc;
+  }, {});
+  const uniqueRenters = Object.keys(activeRentersMap);
+
+  // 3. Action Approve / Reject Real-Time ke Backend & Local Storage
+  const handleUpdateStatus = async (itemObj, newStatus) => {
+    // A. Simpan ke Local Storage agar halaman History langsung ter-update secara otomatis
     try {
-      const savedUser = localStorage.getItem("session_user");
-      if (savedUser) {
-        const u = JSON.parse(savedUser);
-        staffId = u.id || u.id_user || staffId;
-      }
-    } catch {
-      // Abaikan jika tidak ada user
+      const existing = JSON.parse(
+        localStorage.getItem("admin_status_overrides") || "{}"
+      );
+      existing[itemObj.id] = newStatus;
+      existing[itemObj.realId] = newStatus;
+      localStorage.setItem("admin_status_overrides", JSON.stringify(existing));
+    } catch (e) {
+      console.error("Gagal menyimpan override lokal:", e);
     }
 
+    // B. Update UI Admin secara instan (Optimistic UI Update)
+    setBorrows((prev) =>
+      prev.map((b) => (b.id === itemObj.id ? { ...b, status: newStatus } : b))
+    );
+
+    // C. Kirim perubahan ke backend API
     try {
-      // 1. Simpan approval ke backend
-      await apiFetch("/approvals", {
-        method: "POST",
-        body: JSON.stringify({
-          id_borrow: id,
-          id_staff: staffId,
-          status: status,
-          catatan: `Status diubah menjadi ${status} melalui panel Admin`,
-        }),
+      const targetBackendStatus =
+        newStatus === "Approved" ? "disetujui" : "ditolak";
+      await apiFetch(`/borrows/${itemObj.realId}`, {
+        method: "PUT",
+        body: JSON.stringify({ status: targetBackendStatus }),
       });
-
-      // 2. Coba update status borrow jika didukung
-      try {
-        await apiFetch(`/borrows/${id}`, {
-          method: "PUT",
-          body: JSON.stringify({ status: status === "approved" ? "disetujui" : "ditolak" }),
-        });
-      } catch {
-        // Toleransi
-      }
-
-      setQueue((prev) => prev.filter((item) => item.id !== id));
-      setStats((prev) => ({ ...prev, menunggu: Math.max(0, prev.menunggu - 1) }));
-      setBannerMsg(`Peminjaman ID: ${id} berhasil di-${status === "approved" ? "setujui" : "tolak"}!`);
+      loadAdminData();
     } catch (err) {
-      // Tetap beri respons optimistik di UI jika backend tabel approvals belum dibuat
-      setQueue((prev) => prev.filter((item) => item.id !== id));
-      setStats((prev) => ({ ...prev, menunggu: Math.max(0, prev.menunggu - 1) }));
-      setBannerMsg(`Peminjaman ID: ${id} berhasil di-${status === "approved" ? "setujui" : "tolak"} (mode lokal).`);
-    } finally {
-      setActionLoading(null);
+      console.warn("Update PUT backend gagal, menggunakan state lokal:", err);
     }
+  };
+
+  const openDetailModal = (type, title) => {
+    setModalType(type);
+    setModalTitle(title);
+    setShowModal(true);
   };
 
   return (
     <div>
-      <div className="flex items-start justify-between gap-4">
-        <SectionEyebrow
-          index={4}
-          total={4}
-          title="Approval & Manajemen Admin"
-          desc="Manajemen memantau ringkasan operasional, menyetujui atau menolak pengajuan, serta mengelola inventaris dan pengembalian alat."
-        />
+      {/* Header Halaman */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <div>
+          <span className="text-xs font-semibold uppercase tracking-wider text-[#b8860b]">
+            Fitur 4 dari 4
+          </span>
+          <h1
+            className="text-2xl md:text-3xl font-bold mt-1"
+            style={{ ...headingFont, color: C?.forestDeep || "#1a2e26" }}
+          >
+            Approval & Manajemen Admin
+          </h1>
+          <p className="text-sm text-gray-500 mt-1 max-w-xl">
+            Manajemen memantau ringkasan operasional, menyetujui atau menolak
+            pengajuan, serta mengelola inventaris dan pengembalian alat.
+          </p>
+        </div>
         <button
           type="button"
           onClick={loadAdminData}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors flex-shrink-0"
-          style={{ color: C.forestDeep }}
+          className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 rounded-xl text-xs font-semibold shadow-xs transition self-start sm:self-auto cursor-pointer"
+          style={{ color: C?.forestDeep || "#1a2e26" }}
         >
-          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           <span>{loading ? "Memuat..." : "Refresh Data"}</span>
         </button>
       </div>
 
-      {bannerMsg && (
-        <div className="mb-6 p-4 rounded-xl flex items-center justify-between gap-3 text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 size={16} />
-            <span>{bannerMsg}</span>
-          </div>
-          <button type="button" onClick={() => setBannerMsg("")} className="cursor-pointer text-emerald-900 font-bold">
-            Tutup
-          </button>
+      {isLiveApi && (
+        <div className="mb-6 px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
+          <span>✅ Terhubung ke Server Backend (Data Real-Time)</span>
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 uppercase">
+            Live API
+          </span>
         </div>
       )}
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        {[
-          { label: "Alat sedang dipinjam", value: String(stats.dipinjam), icon: Backpack, tone: C.sky },
-          { label: "Persetujuan tertunda", value: String(stats.menunggu), icon: Clock3, tone: C.amberDeep },
-          { label: "Total penyewa aktif", value: String(stats.totalPenyewa), icon: Users, tone: C.moss },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl p-5" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
-            <s.icon size={18} style={{ color: s.tone }} />
-            <p className="text-2xl font-bold mt-3" style={{ ...headingFont, color: C.forestDeep }}>
-              {s.value}
-            </p>
-            <p className="text-xs mt-1" style={{ ...bodyFont, color: "#8A8272" }}>
-              {s.label}
-            </p>
+      {/* --- KARTU STATISTIK INTERAKTIF --- */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
+        {/* Kartu 1: Alat Sedang Dipinjam */}
+        <button
+          type="button"
+          onClick={() =>
+            openDetailModal("borrowed", "Daftar Alat Sedang Dipinjam")
+          }
+          className="text-left p-6 rounded-2xl flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer border border-transparent hover:border-emerald-300"
+          style={{ backgroundColor: C?.canvas || "#f5f3ef" }}
+        >
+          <div className="flex justify-between items-center w-full">
+            <Tent className="w-6 h-6" style={{ color: C?.forestDeep || "#1a2e26" }} />
+            <span className="text-[10px] bg-white text-gray-600 px-2.5 py-1 rounded-full font-bold border border-gray-200 shadow-xs">
+              Klik Detail →
+            </span>
           </div>
-        ))}
+          <div className="mt-5">
+            <div
+              className="text-4xl font-bold"
+              style={{ ...headingFont, color: C?.forestDeep || "#1a2e26" }}
+            >
+              {alatDipinjamList.length}
+            </div>
+            <div className="text-xs text-gray-600 font-medium mt-1">
+              Alat sedang dipinjam
+            </div>
+          </div>
+        </button>
+
+        {/* Kartu 2: Persetujuan Tertunda */}
+        <button
+          type="button"
+          onClick={() =>
+            openDetailModal("pending", "Daftar Persetujuan Tertunda")
+          }
+          className="text-left p-6 rounded-2xl flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer border border-transparent hover:border-amber-300"
+          style={{ backgroundColor: C?.canvas || "#f5f3ef" }}
+        >
+          <div className="flex justify-between items-center w-full">
+            <Clock className="w-6 h-6 text-amber-600" />
+            <span className="text-[10px] bg-white text-amber-700 px-2.5 py-1 rounded-full font-bold border border-amber-200 shadow-xs">
+              Klik Detail →
+            </span>
+          </div>
+          <div className="mt-5">
+            <div
+              className="text-4xl font-bold"
+              style={{ ...headingFont, color: C?.forestDeep || "#1a2e26" }}
+            >
+              {pendingList.length}
+            </div>
+            <div className="text-xs text-gray-600 font-medium mt-1">
+              Persetujuan tertunda
+            </div>
+          </div>
+        </button>
+
+        {/* Kartu 3: Total Penyewa Aktif */}
+        <button
+          type="button"
+          onClick={() => openDetailModal("users", "Daftar Penyewa Aktif")}
+          className="text-left p-6 rounded-2xl flex flex-col justify-between transition-all hover:scale-[1.02] hover:shadow-md cursor-pointer border border-transparent hover:border-emerald-300"
+          style={{ backgroundColor: C?.canvas || "#f5f3ef" }}
+        >
+          <div className="flex justify-between items-center w-full">
+            <Users className="w-6 h-6" style={{ color: C?.forestDeep || "#1a2e26" }} />
+            <span className="text-[10px] bg-white text-gray-600 px-2.5 py-1 rounded-full font-bold border border-gray-200 shadow-xs">
+              Klik Detail →
+            </span>
+          </div>
+          <div className="mt-5">
+            <div
+              className="text-4xl font-bold"
+              style={{ ...headingFont, color: C?.forestDeep || "#1a2e26" }}
+            >
+              {uniqueRenters.length}
+            </div>
+            <div className="text-xs text-gray-600 font-medium mt-1">
+              Total penyewa aktif
+            </div>
+          </div>
+        </button>
       </div>
 
-      <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
-        {/* Antrean Approval */}
-        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.canvasDeep}` }}>
-          <div className="px-5 py-3 flex items-center justify-between" style={{ backgroundColor: C.forestDeep }}>
-            <div className="flex items-center gap-2">
-              <ClipboardList size={15} style={{ color: C.amber }} />
-              <span className="text-sm font-semibold" style={{ ...bodyFont, color: C.paper }}>
-                Antrean Persetujuan ({queue.length})
-              </span>
-            </div>
+      {/* Bagian Utama: Antrean Persetujuan */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 rounded-2xl overflow-hidden border border-gray-200 bg-white shadow-xs">
+          <div
+            className="text-white px-6 py-4 font-semibold text-sm flex items-center justify-between"
+            style={{ backgroundColor: C?.forestDeep || "#1a2e26" }}
+          >
+            <span>📋 Antrean Persetujuan ({pendingList.length})</span>
+            <span className="text-xs font-normal opacity-80">
+              Perlu Konfirmasi Admin
+            </span>
           </div>
-
-          {queue.length === 0 ? (
-            <div className="p-8 text-center bg-white">
-              <CheckCircle2 size={24} className="mx-auto mb-2 text-emerald-600" />
-              <p className="text-sm font-bold text-stone-700">Semua pengajuan telah diproses!</p>
-              <p className="text-xs text-stone-500 mt-1">Tidak ada antrean tertunda saat ini.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-stone-100 bg-white">
-              {queue.map((q) => (
+          <div className="divide-y divide-gray-100 p-2">
+            {pendingList.length === 0 ? (
+              <div className="p-8 text-center text-gray-400 text-sm">
+                Tidak ada persetujuan yang tertunda.
+              </div>
+            ) : (
+              pendingList.map((item) => (
                 <div
-                  key={q.id}
-                  className="flex items-center justify-between px-5 py-4 hover:bg-stone-50 transition-colors"
+                  key={item.id}
+                  className="flex items-center justify-between p-4 hover:bg-gray-50 rounded-xl transition"
                 >
-                  <div className="pr-3">
-                    <p className="text-sm font-semibold" style={{ ...headingFont, color: C.ink }}>
-                      {q.alat}
-                    </p>
-                    <p className="text-xs mt-0.5" style={{ ...bodyFont, color: "#8A8272" }}>
-                      {q.user} · {q.tanggal} · <span className="font-mono">{q.id}</span>
-                    </p>
+                  <div>
+                    <div className="font-bold text-base text-gray-800">
+                      {item.alat}
+                    </div>
+                    <div className="text-xs text-gray-500 mt-1">
+                      Peminjam:{" "}
+                      <strong className="text-gray-700">{item.peminjam}</strong> ·{" "}
+                      {item.tanggal} ·{" "}
+                      <span className="font-mono text-[10px] bg-gray-100 px-1.5 py-0.5 rounded">
+                        {item.id}
+                      </span>
+                    </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
+                  <div className="flex gap-2">
                     <button
                       type="button"
-                      disabled={actionLoading === q.id}
-                      onClick={() => handleDecision(q.id, "approved")}
+                      onClick={() => handleUpdateStatus(item, "Approved")}
+                      className="p-2.5 rounded-xl bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 transition cursor-pointer"
                       title="Setujui Peminjaman"
-                      className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
-                      style={{ backgroundColor: `${C.moss}1A` }}
                     >
-                      {actionLoading === q.id ? (
-                        <Loader2 size={14} className="animate-spin text-stone-600" />
-                      ) : (
-                        <CheckCircle2 size={16} style={{ color: C.moss }} />
-                      )}
+                      <Check className="w-4 h-4" />
                     </button>
                     <button
                       type="button"
-                      disabled={actionLoading === q.id}
-                      onClick={() => handleDecision(q.id, "rejected")}
+                      onClick={() => handleUpdateStatus(item, "Rejected")}
+                      className="p-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 transition cursor-pointer"
                       title="Tolak Peminjaman"
-                      className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
-                      style={{ backgroundColor: `${C.rust}1A` }}
                     >
-                      {actionLoading === q.id ? (
-                        <Loader2 size={14} className="animate-spin text-stone-600" />
-                      ) : (
-                        <XCircle size={16} style={{ color: C.rust }} />
-                      )}
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
+              ))
+            )}
+          </div>
         </div>
 
-        {/* Verifikasi Pengembalian */}
-        <div className="rounded-2xl p-6" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck size={16} style={{ color: C.moss }} />
-            <p className="text-sm font-bold" style={{ ...headingFont, color: C.forestDeep }}>
-              Verifikasi Pengembalian
-            </p>
-          </div>
-          <p className="text-xs mb-4" style={{ ...bodyFont, color: "#8A8272" }}>
+        {/* Panel Verifikasi Pengembalian */}
+        <div
+          className="rounded-2xl p-6 border border-gray-200"
+          style={{ backgroundColor: C?.canvas || "#f5f3ef" }}
+        >
+          <h2 className="font-bold text-base text-gray-800 mb-1">
+            🛡️ Verifikasi Pengembalian
+          </h2>
+          <p className="text-xs text-gray-500 mb-4">
             CT-2026-085 · Set Alat Masak · dikembalikan 10 Sep
           </p>
 
-          <div className="space-y-2 mb-5">
-            {["Kondisi lengkap", "Tidak ada kerusakan", "Tepat waktu"].map((c) => (
-              <label key={c} className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ ...bodyFont, color: C.ink }}>
-                <input type="checkbox" defaultChecked style={{ accentColor: C.moss }} />
-                {c}
-              </label>
-            ))}
+          <div className="space-y-3">
+            <label className="flex items-center gap-3 text-xs text-gray-700 font-medium bg-white p-3 rounded-xl border border-gray-200 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked
+                className="w-4 h-4 accent-emerald-700 rounded"
+              />
+              Kondisi lengkap
+            </label>
+            <label className="flex items-center gap-3 text-xs text-gray-700 font-medium bg-white p-3 rounded-xl border border-gray-200 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked
+                className="w-4 h-4 accent-emerald-700 rounded"
+              />
+              Tidak ada kerusakan
+            </label>
+            <label className="flex items-center gap-3 text-xs text-gray-700 font-medium bg-white p-3 rounded-xl border border-gray-200 cursor-pointer">
+              <input
+                type="checkbox"
+                defaultChecked
+                className="w-4 h-4 accent-emerald-700 rounded"
+              />
+              Tepat waktu
+            </label>
           </div>
-
-          <button
-            type="button"
-            disabled={returnConfirmed}
-            onClick={() => {
-              setReturnConfirmed(true);
-              setBannerMsg("Pengembalian alat CT-2026-085 berhasil diverifikasi & stok dikembalikan.");
-            }}
-            className="w-full py-2.5 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-colors"
-            style={{
-              ...bodyFont,
-              backgroundColor: returnConfirmed ? `${C.moss}26` : C.forest,
-              color: returnConfirmed ? C.moss : C.paper,
-            }}
-          >
-            {returnConfirmed ? (
-              <>
-                <Check size={16} /> Pengembalian Telah Dikonfirmasi
-              </>
-            ) : (
-              "Konfirmasi Pengembalian"
-            )}
-          </button>
         </div>
       </div>
+
+      {/* --- MODAL POPUP INTERAKTIF --- */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-gray-100">
+            {/* Modal Header */}
+            <div className="flex justify-between items-center mb-4 pb-3 border-b border-gray-100">
+              <h3
+                className="text-lg font-bold text-gray-800"
+                style={{ ...headingFont }}
+              >
+                {modalTitle}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="max-h-80 overflow-y-auto space-y-3 pr-1">
+              {(modalType === "borrowed" || modalType === "pending") && (
+                <>
+                  {(modalType === "borrowed"
+                    ? alatDipinjamList
+                    : pendingList
+                  ).length === 0 ? (
+                    <p className="text-gray-400 text-center py-6 text-sm">
+                      Tidak ada data untuk ditampilkan.
+                    </p>
+                  ) : (
+                    (modalType === "borrowed"
+                      ? alatDipinjamList
+                      : pendingList
+                    ).map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3.5 rounded-xl bg-gray-50 border border-gray-100 flex justify-between items-center"
+                      >
+                        <div>
+                          <div className="font-bold text-sm text-gray-800">
+                            {item.alat}
+                          </div>
+                          <div className="text-xs text-gray-600 mt-0.5">
+                            Peminjam:{" "}
+                            <span className="font-semibold text-gray-800">
+                              {item.peminjam}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-gray-400 mt-0.5">
+                            Periode: {item.tanggal}
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-mono bg-white px-2 py-1 rounded border border-gray-200 text-gray-600 font-medium">
+                          {item.id}
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </>
+              )}
+
+              {modalType === "users" && (
+                <>
+                  {uniqueRenters.length === 0 ? (
+                    <p className="text-gray-400 text-center py-6 text-sm">
+                      Tidak ada penyewa aktif saat ini.
+                    </p>
+                  ) : (
+                    uniqueRenters.map((renterName, idx) => {
+                      const userItems = activeRentersMap[renterName];
+                      return (
+                        <div
+                          key={idx}
+                          className="p-4 rounded-xl bg-gray-50 border border-gray-100"
+                        >
+                          <div className="font-bold text-sm text-gray-800 flex items-center justify-between mb-2">
+                            <span>👤 {renterName}</span>
+                            <span className="text-[10px] font-semibold bg-white border border-gray-200 px-2 py-0.5 rounded-full text-gray-600">
+                              {userItems.length} Transaksi
+                            </span>
+                          </div>
+                          <div className="space-y-1.5">
+                            {userItems.map((it) => (
+                              <div
+                                key={it.id}
+                                className="flex justify-between items-center bg-white p-2 rounded-lg border border-gray-100 text-xs"
+                              >
+                                <span className="font-medium text-gray-700">
+                                  • {it.alat}
+                                </span>
+                                <span
+                                  className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
+                                    it.status === "Borrowed" ||
+                                    it.status === "Approved"
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      : "bg-amber-50 text-amber-700 border border-amber-200"
+                                  }`}
+                                >
+                                  {it.status}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="mt-5 pt-3 border-t border-gray-100 text-right">
+              <button
+                type="button"
+                onClick={() => setShowModal(false)}
+                className="px-4 py-2 text-white rounded-xl text-xs font-semibold transition hover:opacity-90 cursor-pointer"
+                style={{ backgroundColor: C?.forestDeep || "#1a2e26" }}
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
