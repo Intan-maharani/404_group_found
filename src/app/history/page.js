@@ -8,123 +8,106 @@ import { SectionEyebrow } from "../../components/Shared";
 import { apiFetch } from "../../lib/api";
 
 const statusMeta = {
-  Pending: { label: "Pending", color: C.amberDeep, icon: Clock3, note: "Menunggu persetujuan manajemen" },
-  Approved: { label: "Approved", color: C.moss, icon: CheckCircle2, note: "Pengajuan disetujui, siap diambil" },
-  Rejected: { label: "Rejected", color: C.rust, icon: XCircle, note: "Pengajuan ditolak manajemen" },
-  Borrowed: { label: "Borrowed", color: C.sky, icon: Backpack, note: "Alat sedang dibawa penyewa" },
-  Returned: { label: "Returned", color: "#7B8A6E", icon: RotateCcw, note: "Alat sudah dikembalikan & diverifikasi" },
+  pending: { label: "Pending", color: C.amberDeep, icon: Clock3, note: "Menunggu persetujuan manajemen" },
+  approved: { label: "Approved", color: C.moss, icon: CheckCircle2, note: "Pengajuan disetujui, siap diambil" },
+  rejected: { label: "Rejected", color: C.rust, icon: XCircle, note: "Pengajuan ditolak manajemen" },
+  borrowed: { label: "Borrowed", color: C.sky, icon: Backpack, note: "Alat sedang dibawa penyewa" },
+  returned: { label: "Returned", color: "#7B8A6E", icon: RotateCcw, note: "Alat sudah dikembalikan & diverifikasi" },
 };
 
 function normalizeStatus(rawStatus = "") {
   const s = String(rawStatus).toLowerCase().trim();
-  if (s.includes("setuju") || s.includes("approve") || s === "disetujui" || s === "approved" || s === "acc") return "Approved";
-  if (s.includes("tolak") || s.includes("reject") || s === "ditolak") return "Rejected";
-  if (s.includes("pinjam") || s.includes("borrow") || s === "dipinjam") return "Borrowed";
-  if (s.includes("selesai") || s.includes("return") || s === "dikembalikan") return "Returned";
-  return "Pending";
+  if (s.includes("approve") || s === "disetujui" || s === "acc") return "approved";
+  if (s.includes("tolak") || s === "ditolak") return "rejected";
+  if (s.includes("pinjam") || s === "dipinjam") return "borrowed";
+  if (s.includes("selesai") || s === "dikembalikan") return "returned";
+  return "pending";
 }
 
 export default function HistoryPage() {
-  const [currentUserEmail] = useState(() => {
-    if (typeof window === "undefined") return "user";
-    try {
-      const userStr = localStorage.getItem("session_user");
-      if (userStr) {
-        const userObj = JSON.parse(userStr);
-        return userObj.email || userObj.username || "user";
-      }
-      return localStorage.getItem("user_email") || "user";
-    } catch {
-      return "user";
-    }
-  });
-
   const [riwayat, setRiwayat] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
   const [returning, setReturning] = useState(false);
-  const [isEarlyReturn, setIsEarlyReturn] = useState(true);
-  const [catatanReturn, setCatatanReturn] = useState("");
 
   const filteredRiwayat = riwayat.filter((item) => {
     if (activeFilter === "ALL") return true;
-    return item.status === activeFilter;
+    return item.status.toLowerCase() === activeFilter.toLowerCase();
   });
 
   const current = filteredRiwayat.find((r) => r.id === selectedId) || filteredRiwayat[0] || null;
-  const meta = statusMeta[current?.status] || statusMeta.Pending;
+  const meta = statusMeta[current?.status?.toLowerCase()] || statusMeta.pending;
 
   const countStatus = (statusKey) => {
-    if (statusKey === "ALL") return filteredRiwayat.length;
-    return filteredRiwayat.filter((r) => r.status === statusKey).length;
+    if (statusKey === "ALL") return riwayat.length;
+    return riwayat.filter((r) => r.status.toLowerCase() === statusKey.toLowerCase()).length;
   };
 
+  // Ambil data murni dari endpoint database /borrows
   const loadBorrows = useCallback(async (isBackgroundFetch = false) => {
     if (!isBackgroundFetch) setLoading(true);
 
-    let combinedList = [];
-
-    // 1. Ambil dari API backend
     try {
-      const res = await apiFetch("/borrows_details");
-      const rawApiList = Array.isArray(res) ? res : (res?.data || []);
-      if (rawApiList.length > 0) {
-        combinedList.push(...rawApiList);
-      }
+      const res = await apiFetch("/borrows");
+      const apiList = Array.isArray(res) ? res : (res?.data || []);
+
+      const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
+      const localNames = JSON.parse(localStorage.getItem("borrow_item_names") || "{}");
+      let currentUser = null;
+      try {
+        const storedUser = localStorage.getItem("session_user");
+        if (storedUser) {
+          currentUser = JSON.parse(storedUser);
+        }
+      } catch (e) {}
+      const isAdmin = currentUser && (
+        currentUser.role === "admin" || 
+        currentUser.email === "admin@chilltime.com" || 
+        String(currentUser.name || "").toLowerCase().includes("admin")
+      );
+      const mapped = apiList.map((b, idx) => {
+        // Menyesuaikan dengan kolom database Anda: id_peminjaman
+        const displayId = b.id_peminjaman || b.uuid || b.id || `CT-${String(idx + 1).padStart(3, "0")}`;
+        
+        const startDate = b.tanggal_mulai_sewa || b.tgl_mulai_sewa || "Hari ini";
+        const endDate = b.tanggal_selesai_sewa || b.tgl_selesai_sewa || "Selesai";
+        
+        const rawBiaya = Number(b.total_biaya || b.total_harga || 50000);
+        const rawStatus = localOverrides[displayId] || b.status_peminjaman || b.status || "pending";
+        
+        // Otomatis membaca nama barang dari database (nama_item / alat) atau fallback ke localStorage / urutan
+        const namaBarang = b.nama_item || b.alat || localNames[displayId] || `Peminjaman Alat #${idx + 1}`;
+        
+        // Otomatis membaca nama user dari database (user_nama / nama_user) atau fallback
+        const namaUser = b.user_nama || b.nama_user || b.username || "Penyewa";
+
+        return {
+          id: displayId,
+          userId: b.id_user || b.user_id,
+          alat: namaBarang,
+          peminjam: namaUser,
+          tanggal: `${startDate} s.d ${endDate}`,
+          durasi: b.total_durasi ? `${b.total_durasi} Hari` : "1 Hari",
+          status: normalizeStatus(rawStatus),
+          total: `Rp${rawBiaya.toLocaleString("id-ID")}`,
+        };
+      });
+      const filteredByUser = isAdmin 
+        ? mapped 
+        : mapped.filter(item => {
+            if (!currentUser) return true; 
+            return item.userId === currentUser.id || item.userId === currentUser.uuid || item.peminjam.toLowerCase() === String(currentUser.name || "").toLowerCase();
+          });
+      // Urutkan dari data terbaru di database
+      const finalResult = mapped.reverse();
+      setRiwayat(finalResult);
+      setSelectedId((prev) => prev || finalResult[0]?.id || "");
     } catch (e) {
-      console.log("API fetch error, using local storage");
+      console.error("Gagal mengambil data riwayat dari database:", e);
+    } finally {
+      if (!isBackgroundFetch) setLoading(false);
     }
-
-    // 2. Ambil dari localStorage cadangan
-    try {
-      const localList1 = JSON.parse(localStorage.getItem("local_borrows_list") || "[]");
-      const localList2 = JSON.parse(localStorage.getItem("borrow_history") || "[]");
-      const localList3 = JSON.parse(localStorage.getItem("peminjaman_list") || "[]");
-      combinedList.push(...localList1, ...localList2, ...localList3);
-    } catch (e) {
-      console.log("Local storage read error");
-    }
-
-    // 3. JIKA MASIH KOSONG JUGA: Paksa buatkan 1 data simulasi agar tidak kosong di layar
-    if (combinedList.length === 0) {
-      const dummyData = {
-        id: "CT-001",
-        alat: "Tenda Camping Outdoor 4 Orang + Set Alat Masak",
-        tanggal_mulai_sewa: new Date().toISOString().split("T")[0],
-        tanggal_selesai_sewa: new Date(Date.now() + 86400000 * 3).toISOString().split("T")[0],
-        status: "Pending",
-        total_biaya: 135000,
-      };
-      combinedList.push(dummyData);
-      // Simpan ke localStorage agar menetap
-      localStorage.setItem("local_borrows_list", JSON.stringify([dummyData]));
-    }
-
-    const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
-
-    const mapped = combinedList.map((b, idx) => {
-      const displayId = b.id || b.id_borrow_detail || `CT-${String(idx + 1).padStart(3, "0")}`;
-      const startDate = b.tanggal_mulai_sewa || b.tanggal_pinjam || "Hari ini";
-      const endDate = b.tanggal_selesai_sewa || b.tanggal_kembali || "Beberapa hari lagi";
-      const rawBiaya = Number(b.total_biaya || b.total_harga || b.total) || 90000;
-      
-      let statusRaw = localOverrides[displayId] || b.status_peminjaman || b.status || "Pending";
-
-      return {
-        realId: displayId,
-        id: displayId,
-        alat: b.nama_item || b.alat || b.nama_barang || `Peminjaman Alat Camping (${displayId})`,
-        tanggal: `${startDate} s.d ${endDate}`,
-        status: normalizeStatus(statusRaw),
-        total: `Rp${rawBiaya.toLocaleString("id-ID")}`,
-      };
-    });
-
-    const finalResult = mapped.reverse();
-    setRiwayat(finalResult);
-    setSelectedId((prev) => prev || finalResult[0]?.id || "");
-    if (!isBackgroundFetch) setLoading(false);
   }, []);
 
   const handleReturnSubmit = async (e) => {
@@ -133,11 +116,10 @@ export default function HistoryPage() {
     setReturning(true);
 
     const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
-    localOverrides[current.id] = "Returned";
+    localOverrides[current.id] = "returned";
     localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
 
     alert("Pengembalian alat berhasil dikonfirmasi!");
-    setCatatanReturn("");
     loadBorrows(true);
     setReturning(false);
   };
@@ -161,7 +143,7 @@ export default function HistoryPage() {
           type="button"
           onClick={() => loadBorrows(false)}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors flex-shrink-0"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors flex-shrink-0 bg-white"
           style={{ color: C.forestDeep }}
         >
           <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
@@ -180,7 +162,7 @@ export default function HistoryPage() {
               {activeFilter !== "ALL" && (
                 <button
                   onClick={() => setActiveFilter("ALL")}
-                  className="text-[10px] bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-full transition cursor-pointer"
+                  className="text-[10px] bg-white/25 hover:bg-white/40 text-white px-2 py-0.5 rounded-full transition cursor-pointer"
                 >
                   Reset Filter ✕
                 </button>
@@ -198,11 +180,11 @@ export default function HistoryPage() {
           <div className="divide-y max-h-[460px] overflow-y-auto" style={{ borderColor: C.canvasDeep, backgroundColor: "#fff" }}>
             {filteredRiwayat.length === 0 ? (
               <div className="p-10 text-center text-gray-400 text-xs">
-                Belum ada transaksi peminjaman.
+                Belum ada transaksi peminjaman di database.
               </div>
             ) : (
               filteredRiwayat.map((item) => {
-                const s = statusMeta[item.status] || statusMeta.Pending;
+                const s = statusMeta[item.status.toLowerCase()] || statusMeta.pending;
                 const isSelected = item.id === current?.id;
 
                 return (
@@ -218,12 +200,12 @@ export default function HistoryPage() {
                         {item.alat}
                       </p>
                       <p className="text-xs mt-0.5" style={{ ...bodyFont, color: "#8A8272" }}>
-                        {item.id} · {item.tanggal}
+                        Oleh: <strong className="text-stone-700">{item.peminjam}</strong> · {item.tanggal}
                       </p>
                     </div>
 
                     <span
-                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0"
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 capitalize"
                       style={{
                         ...bodyFont,
                         backgroundColor: `${s.color}1A`,
@@ -252,7 +234,7 @@ export default function HistoryPage() {
                 {current.alat}
               </h3>
               <p className="text-xs mb-3" style={{ ...bodyFont, color: "#8A8272" }}>
-                ID: {current.id} · Periode: {current.tanggal}
+                Peminjam: <strong className="text-stone-700">{current.peminjam}</strong> · Periode: {current.tanggal}
               </p>
 
               {current.total && (
@@ -267,7 +249,7 @@ export default function HistoryPage() {
               >
                 <meta.icon size={20} className="mt-0.5 flex-shrink-0" style={{ color: meta.color }} />
                 <div>
-                  <p className="text-sm font-bold" style={{ ...headingFont, color: meta.color }}>
+                  <p className="text-sm font-bold capitalize" style={{ ...headingFont, color: meta.color }}>
                     Status: {meta.label}
                   </p>
                   <p className="text-xs mt-0.5 leading-relaxed" style={{ ...bodyFont, color: "#5C5548" }}>
@@ -276,7 +258,7 @@ export default function HistoryPage() {
                 </div>
               </div>
 
-              {current.status === "Borrowed" && (
+              {current.status.toLowerCase() === "borrowed" && (
                 <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
                   <form onSubmit={handleReturnSubmit} className="space-y-3">
                     <button
@@ -305,9 +287,9 @@ export default function HistoryPage() {
           </div>
 
           <div className="space-y-2.5 text-xs" style={{ ...bodyFont }}>
-            {["Pending", "Approved", "Borrowed", "Returned", "Rejected"].map((step) => {
-              const isCurrentStatus = current && step === current.status;
-              const isSelectedFilter = activeFilter === step;
+            {["pending", "approved", "borrowed", "returned", "rejected"].map((step) => {
+              const isCurrentStatus = current && step.toLowerCase() === current.status.toLowerCase();
+              const isSelectedFilter = activeFilter.toLowerCase() === step.toLowerCase();
               const stepInfo = statusMeta[step];
               const count = countStatus(step);
 
@@ -316,10 +298,10 @@ export default function HistoryPage() {
                   key={step}
                   type="button"
                   onClick={() => {
-                    if (activeFilter === step) setActiveFilter("ALL");
+                    if (activeFilter.toLowerCase() === step.toLowerCase()) setActiveFilter("ALL");
                     else {
                       setActiveFilter(step);
-                      const match = filteredRiwayat.find((r) => r.status === step);
+                      const match = filteredRiwayat.find((r) => r.status.toLowerCase() === step.toLowerCase());
                       if (match) setSelectedId(match.id);
                     }
                   }}
@@ -335,7 +317,7 @@ export default function HistoryPage() {
                     className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                     style={{ backgroundColor: isCurrentStatus || isSelectedFilter ? stepInfo.color : "#C5BCAB" }}
                   />
-                  <span style={{ color: isCurrentStatus || isSelectedFilter ? C.forestDeep : "#8A8272", fontWeight: isCurrentStatus || isSelectedFilter ? 700 : 500 }}>
+                  <span className="capitalize" style={{ color: isCurrentStatus || isSelectedFilter ? C.forestDeep : "#8A8272", fontWeight: isCurrentStatus || isSelectedFilter ? 700 : 500 }}>
                     {step}
                   </span>
 
@@ -344,7 +326,7 @@ export default function HistoryPage() {
                       {count}
                     </span>
                     {isCurrentStatus && (
-                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${stepInfo.color}20`, color: stepInfo.color }}>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: `${stepInfo.color}20`, color: stepInfo.color }}>
                         Status Sekarang
                       </span>
                     )}

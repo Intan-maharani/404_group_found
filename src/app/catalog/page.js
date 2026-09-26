@@ -1,467 +1,357 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Package, ShoppingBag, Calendar, CheckCircle2, X, AlertCircle, ShieldAlert, RefreshCw } from "lucide-react";
+import { Clock3, CheckCircle2, XCircle, Backpack, RotateCcw, RefreshCw } from "lucide-react";
+import { C, headingFont, bodyFont } from "../../lib/tokens";
+import { SectionEyebrow } from "../../components/Shared";
 import { apiFetch } from "../../lib/api";
 
-export default function CatalogPage() {
-  const [bundleItems, setBundleItems] = useState([]);
-  const [satuanItems, setSatuanItems] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [errorMessage, setErrorMessage] = useState("");
-  const [isAdmin, setIsAdmin] = useState(false);
+const statusMeta = {
+  pending: { label: "Pending", color: C.amberDeep, icon: Clock3, note: "Menunggu persetujuan manajemen" },
+  approved: { label: "Approved", color: C.moss, icon: CheckCircle2, note: "Pengajuan disetujui, siap diambil" },
+  rejected: { label: "Rejected", color: C.rust, icon: XCircle, note: "Pengajuan ditolak manajemen" },
+  borrowed: { label: "Borrowed", color: C.sky, icon: Backpack, note: "Alat sedang dibawa penyewa" },
+  returned: { label: "Returned", color: "#7B8A6E", icon: RotateCcw, note: "Alat sudah dikembalikan & diverifikasi" },
+};
 
-  useEffect(() => {
-    const updateRole = () => {
-      try {
-        const sessionUserStr = localStorage.getItem("session_user");
-        if (sessionUserStr) {
-          const userObj = JSON.parse(sessionUserStr);
-          const role = String(userObj.role || "").toLowerCase().trim();
-          setIsAdmin(role === "admin");
-        } else {
-          setIsAdmin(false);
-        }
-      } catch (err) {
-        setIsAdmin(false);
-      }
-    };
+function normalizeStatus(rawStatus = "") {
+  const s = String(rawStatus).toLowerCase().trim();
+  if (s.includes("approve") || s === "disetujui" || s === "acc") return "approved";
+  if (s.includes("tolak") || s === "ditolak") return "rejected";
+  if (s.includes("pinjam") || s === "dipinjam") return "borrowed";
+  if (s.includes("selesai") || s === "dikembalikan") return "returned";
+  return "pending";
+}
 
-    updateRole();
-    window.addEventListener("auth-change", updateRole);
-    window.addEventListener("storage", updateRole);
-    return () => {
-      window.removeEventListener("auth-change", updateRole);
-      window.removeEventListener("storage", updateRole);
-    };
-  }, []);
+export default function HistoryPage() {
+  const [riwayat, setRiwayat] = useState([]);
+  const [selectedId, setSelectedId] = useState("");
+  const [activeFilter, setActiveFilter] = useState("ALL");
+  const [loading, setLoading] = useState(false);
+  const [returning, setReturning] = useState(false);
 
-  const loadCatalogData = async () => {
-    setLoading(true);
-    let fetchedBundles = [];
-    let fetchedSatuan = [];
+  const filteredRiwayat = riwayat.filter((item) => {
+    if (activeFilter === "ALL") return true;
+    return item.status.toLowerCase() === activeFilter.toLowerCase();
+  });
 
-    // 1. Ambil data Paket dari endpoint /packages
-    try {
-      const resPkg = await apiFetch("/packages");
-      const rawPkg = Array.isArray(resPkg) ? resPkg : (resPkg?.data || []);
-      fetchedBundles = rawPkg.map((pkg, idx) => ({
-        id: pkg.uuid || pkg.id || `pkg-${idx}`,
-        name: pkg.nama_paket || pkg.name || "Paket Camping",
-        category: "Bundle",
-        pricePerDay: Number(pkg.harga_paket_hari || pkg.harga || pkg.pricePerDay) || 100000,
-        available: Number(pkg.stok || pkg.available) || 5,
-        image: pkg.ikon || pkg.image || "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg",
-        description: pkg.deskripsi || pkg.description || "Paket bundle hemat untuk kegiatan camping dan piknik.",
-      }));
-    } catch (e) {
-      console.log("Gagal memuat endpoint /packages:", e);
-    }
+  const current = filteredRiwayat.find((r) => r.id === selectedId) || filteredRiwayat[0] || null;
+  const meta = statusMeta[current?.status?.toLowerCase()] || statusMeta.pending;
 
-    // 2. Ambil data Barang Satuan dari endpoint /items
-    try {
-      const resItem = await apiFetch("/items");
-      const rawItem = Array.isArray(resItem) ? resItem : (resItem?.data || []);
-      fetchedSatuan = rawItem.map((item, idx) => ({
-        id: item.uuid || item.id || `item-${idx}`,
-        name: item.nama_item || item.name || "Barang Satuan",
-        category: "Satuan",
-        pricePerDay: Number(item.harga_sewa_hari || item.harga_sewa || item.pricePerDay) || 25000,
-        available: Number(item.stok_tersedia ?? item.available) ?? 10,
-        image: item.ikon_item || item.image || "https://i.pinimg.com/1200x/ef/ad/a8/efada842dbe689ef1f1965066334aa15.jpg",
-        description: item.deskripsi || item.description || "Peralatan satuan berkualitas untuk kebutuhan outdoor Anda.",
-      }));
-    } catch (e) {
-      console.log("Gagal memuat endpoint /items:", e);
-    }
-
-    setBundleItems(fetchedBundles);
-    setSatuanItems(fetchedSatuan);
-    setLoading(false);
+  const countStatus = (statusKey) => {
+    if (statusKey === "ALL") return riwayat.length;
+    return riwayat.filter((r) => r.status.toLowerCase() === statusKey.toLowerCase()).length;
   };
 
-  useEffect(() => {
-    loadCatalogData();
-  }, []);
+  // Ambil data murni dari endpoint database /borrows
+  const loadBorrows = useCallback(async (isBackgroundFetch = false) => {
+    if (!isBackgroundFetch) setLoading(true);
 
-  const getTodayString = () => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  };
-
-  const todayStr = getTodayString();
-
-  const handleOpenBorrowModal = (item) => {
-    if (isAdmin) {
-      alert("Akun Admin tidak diizinkan meminjam barang. Peminjaman hanya untuk akun User.");
-      return;
-    }
-
-    const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-
-    const formatDate = (date) => date.toISOString().split("T")[0];
-
-    setStartDate(formatDate(today));
-    setEndDate(formatDate(tomorrow));
-    setErrorMessage("");
-    setSelectedItem(item);
-  };
-
-  const handleConfirmBorrow = async () => {
-    if (!startDate || !endDate) {
-      setErrorMessage("Silakan pilih tanggal mulai dan selesai sewa!");
-      return;
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const today = new Date(todayStr);
-
-    if (start < today) {
-      setErrorMessage("Tanggal sewa tidak boleh tanggal yang sudah lewat!");
-      return;
-    }
-
-    const timeDiff = end.getTime() - start.getTime();
-    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-    if (end < start) {
-      setErrorMessage("Tanggal selesai sewa tidak boleh sebelum tanggal mulai!");
-      return;
-    }
-
-    if (dayDiff < 1) {
-      setErrorMessage("Peminjaman tidak boleh kurang dari sehari (minimal 1 hari)!");
-      return;
-    }
-
-    let sessionUser = { id: "71cedae5-a3e9-a9dd-47a4-b6919bb07701", username: "ayuay" };
     try {
-      const storedUser = localStorage.getItem("session_user");
-      if (storedUser) sessionUser = JSON.parse(storedUser);
-    } catch (e) {}
-
-    const borrowId = `CT-${Date.now().toString().slice(-4)}`;
-    const payload = {
-      uuid: borrowId,
-      id: borrowId,
-      user_id: sessionUser.id || sessionUser.uuid || "71cedae5-a3e9-a9dd-47a4-b6919bb07701",
-      user_nama: sessionUser.username || sessionUser.email || "ayuay",
-      tanggal_pengajuan: new Date().toISOString().split("T")[0],
-      tanggal_mulai_sewa: startDate,
-      tanggal_selesai_sewa: endDate,
-      tgl_mulai_sewa: startDate,
-      tgl_selesai_sewa: endDate,
-      nama_item: selectedItem.name,
-      alat: selectedItem.name,
-      total_biaya: selectedItem.pricePerDay * dayDiff,
-      status: "Pending",
-    };
-
-    // Simpan ke localStorage terlebih dahulu agar dijamin langsung muncul di Riwayat
-    try {
-      const existingList = JSON.parse(localStorage.getItem("local_borrows_list") || "[]");
-      existingList.push(payload);
-      localStorage.setItem("local_borrows_list", JSON.stringify(existingList));
+      const res = await apiFetch("/borrows");
+      const apiList = Array.isArray(res) ? res : (res?.data || []);
 
       const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
-      localOverrides[borrowId] = "Pending";
-      localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
-    } catch (e) {
-      console.error("Gagal simpan lokal:", e);
-    }
+      const localNames = JSON.parse(localStorage.getItem("borrow_item_names") || "{}");
 
-    // Coba kirim ke API backend, jika gagal tetap sukses lewat penyimpanan lokal
-    try {
-      await apiFetch("/borrows", {
-        method: "POST",
-        body: JSON.stringify(payload),
+      // 1. Ambil data user yang sedang aktif login dari localStorage
+      let currentUser = null;
+      try {
+        const storedUser = localStorage.getItem("session_user");
+        if (storedUser) {
+          currentUser = JSON.parse(storedUser);
+        }
+      } catch (e) {}
+
+      // 2. Tentukan apakah user saat ini adalah admin
+      const userRole = String(currentUser?.role || currentUser?.type || "").toLowerCase();
+      const userEmail = String(currentUser?.email || "").toLowerCase();
+      const isAdmin = userRole === "admin" || userEmail === "admin@chilltime.com";
+
+      const mapped = apiList.map((b, idx) => {
+        const displayId = b.id_peminjaman || b.uuid || b.id || `CT-${String(idx + 1).padStart(3, "0")}`;
+        
+        const startDate = b.tanggal_mulai_sewa || b.tgl_mulai_sewa || "Hari ini";
+        const endDate = b.tanggal_selesai_sewa || b.tgl_selesai_sewa || "Selesai";
+        
+        const rawBiaya = Number(b.total_biaya || b.total_harga || 50000);
+        const rawStatus = localOverrides[displayId] || b.status_peminjaman || b.status || "pending";
+        const namaBarang = b.nama_item || b.alat || localNames[displayId] || `Peminjaman Alat #${idx + 1}`;
+        const namaUser = b.user_nama || b.nama_user || b.username || b.nama || "";
+
+        return {
+          id: displayId,
+          userId: String(b.id_user || b.user_id || ""),
+          alat: namaBarang,
+          peminjam: namaUser,
+          tanggal: `${startDate} s.d ${endDate}`,
+          durasi: b.total_durasi ? `${b.total_durasi} Hari` : "1 Hari",
+          status: normalizeStatus(rawStatus),
+          total: `Rp${rawBiaya.toLocaleString("id-ID")}`,
+        };
       });
-    } catch (err) {
-      console.warn("Backend API POST diabaikan, diproses via lokal:", err);
-    }
 
-    alert(`Pengajuan peminjaman "${selectedItem.name}" berhasil diajukan!`);
-    setSelectedItem(null);
-    window.location.href = "/history";
+      // 3. FILTER HAK AKSES: Admin lihat semua, User biasa HANYA melihat miliknya sendiri
+      const filteredByUser = isAdmin 
+        ? mapped 
+        : mapped.filter(item => {
+            if (!currentUser) return false; 
+            
+            const currentUserId = String(currentUser.id || currentUser.uuid || "").trim();
+            const itemUserId = String(item.userId || "").trim();
+
+            // Cocokkan berdasarkan ID User
+            if (currentUserId && itemUserId && currentUserId === itemUserId) {
+              return true;
+            }
+
+            // Fallback: Cocokkan berdasarkan nama user yang login
+            if (item.peminjam && currentUser.name && item.peminjam.toLowerCase().trim() === currentUser.name.toLowerCase().trim()) {
+              return true;
+            }
+
+            return false;
+          });
+
+      // Urutkan dari data terbaru di database
+      const finalResult = filteredByUser.reverse();
+      setRiwayat(finalResult);
+      setSelectedId((prev) => prev || finalResult[0]?.id || "");
+    } catch (e) {
+      console.error("Gagal mengambil data riwayat dari database:", e);
+    } finally {
+      if (!isBackgroundFetch) setLoading(false);
+    }
+  }, []);
+
+  const handleReturnSubmit = async (e) => {
+    e.preventDefault();
+    if (!current) return;
+    setReturning(true);
+
+    const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
+    localOverrides[current.id] = "returned";
+    localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
+
+    alert("Pengembalian alat berhasil dikonfirmasi!");
+    loadBorrows(true);
+    setReturning(false);
   };
 
+  useEffect(() => {
+    loadBorrows();
+    const intervalId = setInterval(() => loadBorrows(true), 3000);
+    return () => clearInterval(intervalId);
+  }, [loadBorrows]);
+
   return (
-    <div className="p-4 sm:p-8 bg-slate-50 min-h-screen text-slate-800">
-      <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
-            Katalog Peminjaman Alat Piknik
-          </h1>
-          <p className="text-slate-600 text-base sm:text-lg">
-            Pilih paket glamping/bundle atau peralatan satuan langsung dari database.
-          </p>
-        </div>
+    <div>
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <SectionEyebrow
+          index={3}
+          total={4}
+          title="Daftar & Status Peminjaman"
+          desc="Pantau seluruh pengajuan sewa, tanggal pengembalian, dan konfirmasi verifikasi dari manajemen secara real-time."
+        />
         <button
           type="button"
-          onClick={loadCatalogData}
+          onClick={() => loadBorrows(false)}
           disabled={loading}
-          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 bg-white hover:bg-stone-50 transition-colors self-start sm:self-auto shadow-xs text-slate-700"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 hover:bg-stone-50 transition-colors flex-shrink-0 bg-white"
+          style={{ color: C.forestDeep }}
         >
-          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
-          <span>{loading ? "Memuat..." : "Refresh Katalog"}</span>
+          <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
+          <span>{loading ? "Memuat..." : "Refresh Status"}</span>
         </button>
       </div>
 
-      {isAdmin && (
-        <div className="max-w-7xl mx-auto mb-8 p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 shadow-sm">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-400 text-stone-950 flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-              <ShieldAlert className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="font-bold text-sm text-stone-900">Mode Administrator Aktif</p>
-              <p className="text-xs text-amber-800">
-                Anda masuk sebagai <strong>Admin</strong>. Tombol peminjaman dinonaktifkan khusus untuk akun pengelola/admin.
+      <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
+        {/* Left Column */}
+        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.canvasDeep}` }}>
+          <div className="px-5 py-3.5 flex items-center justify-between" style={{ backgroundColor: C.forestDeep, color: C.paper }}>
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-semibold" style={{ ...headingFont }}>
+                Daftar Riwayat ({filteredRiwayat.length})
               </p>
+              {activeFilter !== "ALL" && (
+                <button
+                  onClick={() => setActiveFilter("ALL")}
+                  className="text-[10px] bg-white/25 hover:bg-white/40 text-white px-2 py-0.5 rounded-full transition cursor-pointer"
+                >
+                  Reset Filter ✕
+                </button>
+              )}
             </div>
-          </div>
-          <Link
-            href="/admin"
-            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-xl transition-colors whitespace-nowrap self-start sm:self-auto shadow-xs"
-          >
-            Buka Panel Approval &rarr;
-          </Link>
-        </div>
-      )}
-
-      <div className="max-w-7xl mx-auto space-y-12">
-        {loading ? (
-          <div className="text-center py-20 text-slate-400 text-sm">Memuat data paket dan item dari database...</div>
-        ) : (
-          <>
-            {/* Section 1: Paket Glamping / Bundle (Dari tabel /packages) */}
-            {bundleItems.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
-                  <Package className="text-emerald-600 w-6 h-6" />
-                  <h2 className="text-2xl font-bold text-slate-900">Paket Glamping & Bundle</h2>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {bundleItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col overflow-hidden group"
-                    >
-                      <div className="relative h-48 w-full overflow-hidden bg-slate-100 shrink-0">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            e.target.src = "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg";
-                          }}
-                        />
-                        <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                          Paket Glamping
-                        </span>
-                        <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200">
-                          Stok: {item.available}
-                        </span>
-                      </div>
-
-                      <div className="p-5 flex flex-col flex-1 justify-between">
-                        <div>
-                          <h3 className="font-bold text-lg text-slate-900 group-hover:text-emerald-600 transition-colors">
-                            {item.name}
-                          </h3>
-                          <p className="text-slate-600 text-sm mt-2 leading-relaxed line-clamp-3">
-                            {item.description}
-                          </p>
-                        </div>
-
-                        <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-1 overflow-hidden">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-[10px] text-slate-400 block leading-none mb-1">Sewa / Hari</span>
-                            <span className="font-extrabold text-emerald-600 text-xs sm:text-sm whitespace-nowrap tracking-tight block">
-                              Rp {item.pricePerDay.toLocaleString("id-ID")}
-                            </span>
-                          </div>
-                          {!isAdmin ? (
-                            <button
-                              onClick={() => handleOpenBorrowModal(item)}
-                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm shrink-0 whitespace-nowrap cursor-pointer"
-                            >
-                              Pinjam Paket
-                            </button>
-                          ) : (
-                            <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
-                              Mode Admin
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-
-            {/* Section 2: Barang Satuan (Dari tabel /items) */}
-            {satuanItems.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
-                  <ShoppingBag className="text-emerald-600 w-6 h-6" />
-                  <h2 className="text-2xl font-bold text-slate-900">Barang Satuan Camping & Piknik</h2>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                  {satuanItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col overflow-hidden group"
-                    >
-                      <div className="relative h-44 w-full overflow-hidden bg-slate-100 shrink-0">
-                        <img
-                          src={item.image}
-                          alt={item.name}
-                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                          onError={(e) => {
-                            e.target.src = "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg";
-                          }}
-                        />
-                        <span className="absolute top-3 left-3 bg-slate-800 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-sm">
-                          Satuan
-                        </span>
-                        <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full border border-slate-200">
-                          Stok: {item.available}
-                        </span>
-                      </div>
-
-                      <div className="p-4 flex flex-col flex-1 justify-between">
-                        <div>
-                          <h3 className="font-bold text-base text-slate-900 group-hover:text-emerald-600 transition-colors">
-                            {item.name}
-                          </h3>
-                          <p className="text-slate-500 text-xs mt-1.5 leading-relaxed line-clamp-2">
-                            {item.description}
-                          </p>
-                        </div>
-
-                        <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center gap-1.5">
-                          <div className="shrink-0">
-                            <span className="text-[10px] text-slate-400 block leading-tight">Sewa / Hari</span>
-                            <span className="font-bold text-emerald-600 text-xs sm:text-sm whitespace-nowrap">
-                              Rp {item.pricePerDay.toLocaleString("id-ID")}
-                            </span>
-                          </div>
-                          {!isAdmin ? (
-                            <button
-                              onClick={() => handleOpenBorrowModal(item)}
-                              className="bg-slate-900 hover:bg-emerald-600 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors active:scale-95 duration-150 shrink-0 whitespace-nowrap cursor-pointer"
-                            >
-                              Pinjam
-                            </button>
-                          ) : (
-                            <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
-                              Mode Admin
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </section>
-            )}
-          </>
-        )}
-      </div>
-
-      {selectedItem && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
-            <button
-              onClick={() => setSelectedItem(null)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
+            <Link
+              href="/catalog"
+              className="text-xs font-semibold underline flex items-center gap-1 opacity-90 hover:opacity-100"
+              style={{ color: C.amber }}
             >
-              <X className="w-5 h-5" />
-            </button>
+              + Sewa Baru
+            </Link>
+          </div>
 
-            <div>
-              <span className="text-xs font-semibold tracking-wider text-emerald-600 uppercase bg-emerald-50 px-2.5 py-1 rounded-full">
-                Formulir Peminjaman
-              </span>
-              <h3 className="font-bold text-xl text-slate-900 mt-2">{selectedItem.name}</h3>
-              <p className="text-sm text-slate-500 mt-1">
-                Harga Sewa:{" "}
-                <strong className="text-emerald-600 font-semibold whitespace-nowrap">
-                  Rp {selectedItem.pricePerDay.toLocaleString("id-ID")}
-                </strong>{" "}
-                / hari
-              </p>
-            </div>
-
-            {errorMessage && (
-              <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-xs font-medium flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
-                <span>{errorMessage}</span>
+          <div className="divide-y max-h-[460px] overflow-y-auto" style={{ borderColor: C.canvasDeep, backgroundColor: "#fff" }}>
+            {filteredRiwayat.length === 0 ? (
+              <div className="p-10 text-center text-gray-400 text-xs">
+                Belum ada transaksi peminjaman untuk akun Anda.
               </div>
+            ) : (
+              filteredRiwayat.map((item) => {
+                const s = statusMeta[item.status.toLowerCase()] || statusMeta.pending;
+                const isSelected = item.id === current?.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => setSelectedId(item.id)}
+                    className="w-full flex items-center justify-between px-5 py-4 text-left transition-colors cursor-pointer"
+                    style={{ backgroundColor: isSelected ? C.paper : "#fff" }}
+                  >
+                    <div className="pr-3">
+                      <p className="text-sm font-semibold truncate max-w-[220px] md:max-w-xs" style={{ ...headingFont, color: C.ink }}>
+                        {item.alat}
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ ...bodyFont, color: "#8A8272" }}>
+                        ID: {item.id} · {item.tanggal}
+                      </p>
+                    </div>
+
+                    <span
+                      className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 capitalize"
+                      style={{
+                        ...bodyFont,
+                        backgroundColor: `${s.color}1A`,
+                        color: s.color,
+                        border: `1px solid ${s.color}40`,
+                      }}
+                    >
+                      <s.icon size={13} />
+                      {s.label}
+                    </span>
+                  </button>
+                );
+              })
             )}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-emerald-600" /> Tanggal Mulai Sewa
-                </label>
-                <input
-                  type="date"
-                  min={todayStr}
-                  value={startDate}
-                  onChange={(e) => {
-                    setStartDate(e.target.value);
-                    setErrorMessage("");
-                  }}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
-                  <Calendar className="w-4 h-4 text-emerald-600" /> Tanggal Selesai Sewa
-                </label>
-                <input
-                  type="date"
-                  min={startDate || todayStr}
-                  value={endDate}
-                  onChange={(e) => {
-                    setEndDate(e.target.value);
-                    setErrorMessage("");
-                  }}
-                  className="w-full border border-slate-200 rounded-xl p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 pt-2">
-              <button
-                onClick={() => setSelectedItem(null)}
-                className="w-1/2 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleConfirmBorrow}
-                className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
-              >
-                <CheckCircle2 className="w-4 h-4" /> Konfirmasi
-              </button>
-            </div>
           </div>
         </div>
-      )}
+
+        {/* Right Column */}
+        <div className="rounded-2xl p-6" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
+          {current ? (
+            <>
+              <p className="text-xs font-semibold uppercase tracking-wide" style={{ ...bodyFont, color: "#8A8272" }}>
+                Detail Transaksi
+              </p>
+              <h3 className="text-xl font-bold mt-1 mb-1" style={{ ...headingFont, color: C.forestDeep }}>
+                {current.alat}
+              </h3>
+              <p className="text-xs mb-3" style={{ ...bodyFont, color: "#8A8272" }}>
+                ID: {current.id} · Periode: {current.tanggal}
+              </p>
+
+              {current.total && (
+                <div className="mb-5 inline-block px-3 py-1 rounded-lg bg-white border border-stone-200 text-xs font-semibold text-stone-700">
+                  Total Biaya: <span style={{ color: C.forestDeep }} className="font-bold">{current.total}</span>
+                </div>
+              )}
+
+              <div
+                className="p-4 rounded-xl mb-6 flex items-start gap-3"
+                style={{ backgroundColor: `${meta.color}15`, border: `1px solid ${meta.color}40` }}
+              >
+                <meta.icon size={20} className="mt-0.5 flex-shrink-0" style={{ color: meta.color }} />
+                <div>
+                  <p className="text-sm font-bold capitalize" style={{ ...headingFont, color: meta.color }}>
+                    Status: {meta.label}
+                  </p>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ ...bodyFont, color: "#5C5548" }}>
+                    {meta.note}
+                  </p>
+                </div>
+              </div>
+
+              {current.status.toLowerCase() === "borrowed" && (
+                <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <form onSubmit={handleReturnSubmit} className="space-y-3">
+                    <button
+                      type="submit"
+                      disabled={returning}
+                      className="w-full py-2.5 px-3 rounded-xl text-xs font-semibold bg-amber-700 hover:bg-amber-800 text-white cursor-pointer shadow-xs flex items-center justify-center gap-1.5"
+                    >
+                      <RotateCcw size={14} className={returning ? "animate-spin" : ""} />
+                      <span>{returning ? "Memproses..." : "Konfirmasi Pengembalian Alat"}</span>
+                    </button>
+                  </form>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-6 text-gray-400 text-xs">
+              Belum ada transaksi peminjaman.
+            </div>
+          )}
+
+          <div className="flex justify-between items-center mb-3 pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wide" style={{ ...bodyFont, color: "#8A8272" }}>
+              Tahapan Pelacakan
+            </p>
+            <span className="text-[10px] text-stone-500 font-medium">Klik tahapan untuk menyaring</span>
+          </div>
+
+          <div className="space-y-2.5 text-xs" style={{ ...bodyFont }}>
+            {["pending", "approved", "borrowed", "returned", "rejected"].map((step) => {
+              const isCurrentStatus = current && step.toLowerCase() === current.status.toLowerCase();
+              const isSelectedFilter = activeFilter.toLowerCase() === step.toLowerCase();
+              const stepInfo = statusMeta[step];
+              const count = countStatus(step);
+
+              return (
+                <button
+                  key={step}
+                  type="button"
+                  onClick={() => {
+                    if (activeFilter.toLowerCase() === step.toLowerCase()) setActiveFilter("ALL");
+                    else {
+                      setActiveFilter(step);
+                      const match = filteredRiwayat.find((r) => r.status.toLowerCase() === step.toLowerCase());
+                      if (match) setSelectedId(match.id);
+                    }
+                  }}
+                  className={`w-full flex items-center gap-2.5 p-2.5 rounded-xl transition-all cursor-pointer text-left border ${
+                    isSelectedFilter
+                      ? "bg-white shadow-xs border-emerald-600 scale-[1.02]"
+                      : isCurrentStatus
+                      ? "bg-white border-stone-300"
+                      : "bg-transparent border-transparent hover:bg-white/60"
+                  }`}
+                >
+                  <div
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: isCurrentStatus || isSelectedFilter ? stepInfo.color : "#C5BCAB" }}
+                  />
+                  <span className="capitalize" style={{ color: isCurrentStatus || isSelectedFilter ? C.forestDeep : "#8A8272", fontWeight: isCurrentStatus || isSelectedFilter ? 700 : 500 }}>
+                    {step}
+                  </span>
+
+                  <div className="ml-auto flex items-center gap-2">
+                    <span className="text-[10px] bg-stone-100 text-stone-600 font-bold px-2 py-0.5 rounded-full border border-stone-200">
+                      {count}
+                    </span>
+                    {isCurrentStatus && (
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize" style={{ backgroundColor: `${stepInfo.color}20`, color: stepInfo.color }}>
+                        Status Sekarang
+                      </span>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
