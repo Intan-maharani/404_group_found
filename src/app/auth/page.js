@@ -33,41 +33,106 @@ export default function AuthPage() {
     setSuccessMsg("");
 
     try {
-    if (mode === "register") {
-    const res = await apiFetch("/register", {
-    method: "POST",
-    body: JSON.stringify({
-      name: form.nama,
-      email: form.email,
-      phone: form.no_telepon,
-      password: form.password,
-      role: "user",
-    }),
-  });
+      if (mode === "register") {
+        await apiFetch("/register", {
+          method: "POST",
+          body: JSON.stringify({
+            name: form.nama,
+            email: form.email,
+            phone: form.no_telepon,
+            password: form.password,
+            role: "user",
+          }),
+        });
 
-  setSuccessMsg("Pendaftaran akun berhasil! Silakan masuk.");
-  setMode("login");
-}
-      else {
+        setSuccessMsg("Pendaftaran akun berhasil! Silakan masuk.");
+        setMode("login");
+      } else {
         const res = await apiFetch("/login", {
           method: "POST",
           body: JSON.stringify({
-            email: form.email,
+            email: form.email.trim(),
             password: form.password,
           }),
         });
 
-        if (res.token) {
-          localStorage.setItem("session_token", res.token);
-          if (res.user) {
-            localStorage.setItem("session_user", JSON.stringify(res.user));
-          }
+        // 1. Ekstrak token (API HMIF menyimpannya di res.data.access_token)
+        const token =
+          res.data?.access_token ||
+          res.access_token ||
+          res.token ||
+          res.data?.token ||
+          "";
+
+        if (token) {
+          localStorage.setItem("session_token", token);
         }
 
-        setSuccessMsg("Login berhasil! Mengalihkan ke Katalog...");
-        setTimeout(() => {
-          router.push("/catalog");
-        }, 800);
+        // 2. Ambil profil user dari response
+        let userProfile = res.data?.user || res.user || {};
+
+        // 3. Ambil data master dari /users untuk melengkapi nama & role admin
+        try {
+          const usersRes = await apiFetch("/users");
+          const usersList = Array.isArray(usersRes)
+            ? usersRes
+            : usersRes?.value || usersRes?.data || [];
+
+          const matchedUser = usersList.find(
+            (u) => u.email?.toLowerCase().trim() === form.email.toLowerCase().trim()
+          );
+
+          if (matchedUser) {
+            userProfile = {
+              ...userProfile,
+              ...matchedUser,
+              id: matchedUser.id_user || userProfile.id,
+              nama: matchedUser.nama_lengkap || userProfile.name || matchedUser.username || form.email.split("@")[0],
+              nama_lengkap: matchedUser.nama_lengkap || userProfile.name,
+              role: matchedUser.role || userProfile.role || "user",
+            };
+          }
+        } catch (uErr) {
+          console.warn("Pengecekan /users gagal:", uErr);
+        }
+
+        if (!userProfile.email) {
+          userProfile.email = form.email;
+        }
+        if (!userProfile.nama) {
+          userProfile.nama = userProfile.name || form.email.split("@")[0];
+        }
+
+        const userRole = String(
+          userProfile.role ||
+            (form.email.toLowerCase().includes("admin") ? "admin" : "user")
+        )
+          .toLowerCase()
+          .trim();
+        userProfile.role = userRole;
+
+        // 4. Simpan ke session_user di localStorage
+        localStorage.setItem("session_user", JSON.stringify(userProfile));
+
+        // 5. Picu event agar komponen Nav langsung terupdate seketika
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event("auth-change"));
+          window.dispatchEvent(new Event("storage"));
+        }
+
+        if (userRole === "admin") {
+          setSuccessMsg(
+            `Login berhasil sebagai Admin (${userProfile.nama_lengkap || userProfile.nama || userProfile.email})! Mengalihkan ke Panel Admin...`
+          );
+          setTimeout(() => {
+            router.push("/admin");
+          }, 800);
+        } else {
+          setSuccessMsg("Login berhasil! Mengalihkan ke Katalog...");
+          setTimeout(() => {
+            router.push("/catalog");
+          }, 800);
+        }
       }
     } catch (err) {
       setErrorMsg(err.message || "Terjadi kesalahan, silakan coba lagi.");

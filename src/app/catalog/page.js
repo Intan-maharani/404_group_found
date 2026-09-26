@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
-import { Package, ShoppingBag, Calendar, CheckCircle2, X, AlertCircle } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import Link from "next/link";
+import { Package, ShoppingBag, Calendar, CheckCircle2, X, AlertCircle, ShieldAlert } from "lucide-react";
 
 export const initialItems = [
   // Paket Bundle (>1 Paket)
@@ -149,21 +150,33 @@ export default function CatalogPage() {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Cek peran user dari localStorage
-  const [isAdmin] = useState(() => {
-    if (typeof window === "undefined") return false;
-    try {
-      const sessionUserStr = localStorage.getItem("session_user");
-      if (sessionUserStr) {
-        const userObj = JSON.parse(sessionUserStr);
-        return userObj.role === "admin";
+  // Cek peran user dari localStorage secara reaktif
+  useEffect(() => {
+    const updateRole = () => {
+      try {
+        const sessionUserStr = localStorage.getItem("session_user");
+        if (sessionUserStr) {
+          const userObj = JSON.parse(sessionUserStr);
+          const role = String(userObj.role || "").toLowerCase().trim();
+          setIsAdmin(role === "admin");
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err) {
+        setIsAdmin(false);
       }
-    } catch (err) {
-      console.error("Gagal membaca session_user:", err);
-    }
-    return false;
-  });
+    };
+
+    updateRole();
+    window.addEventListener("auth-change", updateRole);
+    window.addEventListener("storage", updateRole);
+    return () => {
+      window.removeEventListener("auth-change", updateRole);
+      window.removeEventListener("storage", updateRole);
+    };
+  }, []);
 
   // Dapatkan tanggal hari ini dalam format YYYY-MM-DD
   const getTodayString = () => {
@@ -175,6 +188,11 @@ export default function CatalogPage() {
 
   // Membuka modal peminjaman dan mengatur tanggal awal
   const handleOpenBorrowModal = (item) => {
+    if (isAdmin) {
+      alert("Akun Admin tidak diizinkan meminjam barang. Fitur peminjaman hanya untuk akun User.");
+      return;
+    }
+
     const today = new Date();
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -189,6 +207,11 @@ export default function CatalogPage() {
 
   // Fungsi konfirmasi dengan validasi ketat
   const handleConfirmBorrow = () => {
+    if (isAdmin) {
+      setErrorMessage("Akun Admin tidak diizinkan mengajukan peminjaman!");
+      return;
+    }
+
     if (!startDate || !endDate) {
       setErrorMessage("Silakan pilih tanggal mulai dan selesai sewa!");
       return;
@@ -229,7 +252,7 @@ export default function CatalogPage() {
   return (
     <div className="p-4 sm:p-8 bg-slate-50 min-h-screen text-slate-800">
       {/* Header Section */}
-      <div className="max-w-7xl mx-auto mb-10 text-center sm:text-left">
+      <div className="max-w-7xl mx-auto mb-8 text-center sm:text-left">
         <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
           Katalog Peminjaman Alat Piknik
         </h1>
@@ -237,6 +260,29 @@ export default function CatalogPage() {
           Pilih paket bundle hemat atau peralatan satuan berkualitas untuk liburan seru Anda.
         </p>
       </div>
+
+      {/* Banner Khusus Mode Admin */}
+      {isAdmin && (
+        <div className="max-w-7xl mx-auto mb-8 p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-400 text-stone-950 flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="font-bold text-sm text-stone-900">Mode Administrator Aktif</p>
+              <p className="text-xs text-amber-800">
+                Anda masuk sebagai <strong>Admin</strong>. Anda hanya dapat memantau stok dan katalog. Tombol peminjaman dinonaktifkan khusus untuk akun pengelola/admin.
+              </p>
+            </div>
+          </div>
+          <Link
+            href="/admin"
+            className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-stone-950 font-bold text-xs rounded-xl transition-colors whitespace-nowrap self-start sm:self-auto shadow-xs"
+          >
+            Buka Panel Approval &rarr;
+          </Link>
+        </div>
+      )}
 
       <div className="max-w-7xl mx-auto space-y-12">
         {/* Section 1: Paket Bundle */}
@@ -293,7 +339,7 @@ export default function CatalogPage() {
                           Pinjam Paket
                         </button>
                       ) : (
-                        <span className="text-[10px] bg-slate-100 text-slate-500 font-semibold px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
+                        <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
                           Mode Admin
                         </span>
                       )}
@@ -319,16 +365,16 @@ export default function CatalogPage() {
                   key={item.id}
                   className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col overflow-hidden group"
                 >
-                  <div className="relative h-40 w-full overflow-hidden bg-slate-100 shrink-0">
+                  <div className="relative h-44 w-full overflow-hidden bg-slate-100 shrink-0">
                     <img
                       src={item.image}
                       alt={item.name}
                       className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <span className="absolute top-3 left-3 bg-slate-800/80 text-white text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
+                    <span className="absolute top-3 left-3 bg-slate-800 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-sm">
                       {item.category}
                     </span>
-                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200">
+                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full border border-slate-200">
                       Stok: {item.available}
                     </span>
                   </div>
@@ -358,7 +404,7 @@ export default function CatalogPage() {
                           Pinjam
                         </button>
                       ) : (
-                        <span className="text-[10px] bg-slate-100 text-slate-500 font-semibold px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
+                        <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
                           Mode Admin
                         </span>
                       )}
