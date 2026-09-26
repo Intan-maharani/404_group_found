@@ -55,24 +55,30 @@ export default function AuthPage() {
             password: form.password,
           }),
         });
+        const authData = res.data || {};
 
-        if (res.token) {
-          localStorage.setItem("session_token", res.token);
-        }
+          if (authData.access_token) {
+            localStorage.setItem("session_token", authData.access_token);
+          }
 
-        // Tentukan data user dengan fallback otomatis (mengenali admin berdasarkan email)
-        const loggedUser = res.user || {
-          name: form.email.includes("admin") ? "Administrator ChillTime" : form.email.split("@")[0],
-          email: form.email,
-          role: form.email.toLowerCase().includes("admin") ? "admin" : "user",
-        };
+          // Tentukan data user dengan fallback otomatis (mengenali admin berdasarkan email)
+          const loggedUser = authData.user || {
+            name: form.email.includes("admin") ? "Administrator ChillTime" : form.email.split("@")[0],
+            email: form.email,
+            role: form.email.toLowerCase().includes("admin") ? "admin" : "user",
+          };
 
-        if (form.email.toLowerCase().includes("admin")) {
-          loggedUser.role = "admin";
-        }
+          // Pastikan field id selalu ada, dan name gak null
+          if (!loggedUser.name) {
+            loggedUser.name = form.email.split("@")[0];
+          }
 
-        localStorage.setItem("session_user", JSON.stringify(loggedUser));
-        localStorage.setItem("user_email", form.email);
+          if (form.email.toLowerCase().includes("admin")) {
+            loggedUser.role = "admin";
+          }
+
+          localStorage.setItem("session_user", JSON.stringify(loggedUser));
+          localStorage.setItem("user_email", form.email);
 
         setSuccessMsg("Login berhasil! Mengalihkan ke Katalog...");
         setTimeout(() => {

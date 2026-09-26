@@ -22,8 +22,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [bannerMsg, setBannerMsg] = useState("");
-  const [returnConfirmed, setReturnConfirmed] = useState(false);
   const [selectedQueue, setSelectedQueue] = useState(null);
+  const [returnQueue, setReturnQueue] = useState([]);
 
   // Statistik
   const [stats, setStats] = useState({
@@ -34,7 +34,6 @@ export default function AdminPage() {
 
 const loadAdminData = async () => {
   setLoading(true);
-
   try {
     // Ambil semua data yang diperlukan dari API
     const [borrows, borrowDetails, items, users] = await Promise.all([
@@ -65,68 +64,48 @@ const loadAdminData = async () => {
     // =========================
     // 3. BUAT DATA ANTREAN
     // =========================
-    const mappedPending = pending.map((b) => {
-      // Cari semua detail barang untuk peminjaman ini
-      const details = Array.isArray(borrowDetails)
-        ? borrowDetails.filter(
-            (d) => d.id_peminjaman === b.id_peminjaman
-          )
-        : [];
+        const mapBorrowToDisplay = (b) => {
+  const details = Array.isArray(borrowDetails)
+    ? borrowDetails.filter((d) => d.id_peminjaman === b.id_peminjaman)
+    : [];
 
-      // Cari nama barang
-      const namaAlat = details
-        .map((detail) => {
-          const item = Array.isArray(items)
-            ? items.find(
-                (i) => i.id_item === detail.id_item
-              )
-            : null;
-
-          if (item) {
-            return detail.jumlah_pinjam > 1
-              ? `${item.nama_item} x${detail.jumlah_pinjam}`
-              : item.nama_item;
-          }
-
-          return null;
-        })
-        .filter(Boolean)
-        .join(", ");
-
-      // Cari data user berdasarkan id_user
-      const user = Array.isArray(users)
-        ? users.find(
-            (u) => u.id_user === b.id_user
-          )
+  const namaAlat = details
+    .map((detail) => {
+      const item = Array.isArray(items)
+        ? items.find((i) => i.id_item === detail.id_item)
         : null;
+      if (item) {
+        return detail.jumlah_pinjam > 1
+          ? `${item.nama_item} x${detail.jumlah_pinjam}`
+          : item.nama_item;
+      }
+      return null;
+    })
+    .filter(Boolean)
+    .join(", ");
 
-      return {
-      id: b.id_peminjaman,
+  const user = Array.isArray(users)
+    ? users.find((u) => u.id_user === b.id_user)
+    : null;
 
-      user: user?.nama_lengkap || "Nama tidak tersedia",
+  return {
+    id: b.id_peminjaman,
+    user: user?.nama_lengkap || "Nama tidak tersedia",
+    email: user?.email || "Email tidak tersedia",
+    phone: "Nomor HP tidak tersedia",
+    alat: namaAlat || "Barang tidak tersedia",
+    jumlah: details.reduce((t, d) => t + Number(d.jumlah_pinjam || 0), 0),
+    tanggal: `${b.tanggal_mulai_sewa} – ${b.tanggal_selesai_sewa}`,
+    totalBiaya: b.total_biaya || 0,
+    status: b.status_peminjaman,
+  };
+};
 
-      email: user?.email || "Email tidak tersedia",
+const mappedPending = pending.map(mapBorrowToDisplay);
+const mappedBorrowed = activeBorrowed.map(mapBorrowToDisplay);
 
-      phone: "Nomor HP tidak tersedia",
-
-      alat: namaAlat || "Barang tidak tersedia",
-
-      jumlah: details.reduce(
-        (total, detail) =>
-          total + Number(detail.jumlah_pinjam || 0),
-        0
-      ),
-
-      tanggal: `${b.tanggal_mulai_sewa} – ${b.tanggal_selesai_sewa}`,
-
-      totalBiaya: b.total_biaya || 0,
-
-      status: b.status_peminjaman,
-    };
-    });
-
-    // Masukkan data asli ke antrean
-    setQueue(mappedPending);
+setQueue(mappedPending);
+setReturnQueue(mappedBorrowed);
 
     // =========================
     // 4. UPDATE STATISTIK
@@ -155,18 +134,22 @@ const loadAdminData = async () => {
     setActionLoading(id);
     setBannerMsg("");
 
+
     try {
       await apiFetch(`/borrows/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({
-          status_peminjaman: status,
-          alasan_penolakan:
-            status === "rejected"
-              ? "Pengajuan ditolak oleh admin"
-              : "",
-        }),
-      });
-
+      method: "POST",
+      headers: {
+      "X-HTTP-Method-Override": "PUT",
+    },
+     body: JSON.stringify({
+     status_peminjaman: status,
+     alasan_penolakan:
+      status === "rejected"
+        ? "Pengajuan ditolak oleh admin"
+        : "",
+  }),
+});
+    
       setQueue((prev) =>
         prev.filter((item) => item.id !== id)
       );
@@ -192,6 +175,28 @@ const loadAdminData = async () => {
       setActionLoading(null);
     }
   };
+       const handleReturnConfirm = async (id) => {
+       setActionLoading(id);
+       setBannerMsg("");
+  try {
+        await apiFetch('/borrows/${id}', {
+        method: "POST",
+        headers: {
+        "X-HTTP-Method-Override": "PUT",
+        },
+        body: JSON.stringify({ status_peminjaman: "returned" }),
+        });
+
+    setReturnQueue((prev) => prev.filter((item) => item.id !== id));
+    setStats((prev) => ({ ...prev, dipinjam: Math.max(0, prev.dipinjam - 1) }));
+    setBannerMsg(`Pengembalian ID: ${id} berhasil dikonfirmasi & stok dikembalikan.`);
+  } catch (err) {
+    console.error("Gagal konfirmasi pengembalian:", err);
+    setBannerMsg(`Gagal mengonfirmasi pengembalian ID: ${id}.`);
+  } finally {
+    setActionLoading(null);
+  }
+};
   return (
     <div>
       <div className="flex items-start justify-between gap-4">
@@ -318,50 +323,48 @@ const loadAdminData = async () => {
         </div>
 
         {/* Verifikasi Pengembalian */}
-        <div className="rounded-2xl p-6" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
+        <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.canvasDeep}` }}>
+   <div className="px-5 py-3 flex items-center gap-2" style={{ backgroundColor: C.forestDeep }}>
+    <ShieldCheck size={15} style={{ color: C.amber }} />
+    <span className="text-sm font-semibold" style={{ ...bodyFont, color: C.paper }}>
+      Verifikasi Pengembalian ({returnQueue.length})
+    </span>
+  </div>
 
-          <div className="flex items-center gap-2 mb-4">
-            <ShieldCheck size={16} style={{ color: C.moss }} />
-            <p className="text-sm font-bold" style={{ ...headingFont, color: C.forestDeep }}>
-              Verifikasi Pengembalian
-            </p>
-          </div>
-          <p className="text-xs mb-4" style={{ ...bodyFont, color: "#8A8272" }}>
-            CT-2026-085 · Set Alat Masak · dikembalikan 10 Sep
+  {returnQueue.length === 0 ? (
+    <div className="p-6 text-center bg-white">
+      <p className="text-xs text-stone-500">Tidak ada alat yang sedang dipinjam saat ini.</p>
+    </div>
+     ) : (
+     <div className="divide-y divide-stone-100 bg-white">
+       {returnQueue.map((r) => (
+        <div key={r.id} className="px-5 py-4">
+          <p className="text-sm font-semibold" style={{ ...headingFont, color: C.ink }}>
+            {r.alat}
           </p>
-
-          <div className="space-y-2 mb-5">
-            {["Kondisi lengkap", "Tidak ada kerusakan", "Tepat waktu"].map((c) => (
-              <label key={c} className="flex items-center gap-2 text-sm cursor-pointer select-none" style={{ ...bodyFont, color: C.ink }}>
-                <input type="checkbox" defaultChecked style={{ accentColor: C.moss }} />
-                {c}
-              </label>
-            ))}
-          </div>
-
+          <p className="text-xs mt-0.5 mb-3" style={{ ...bodyFont, color: "#8A8272" }}>
+            {r.user} · {r.tanggal} · <span className="font-mono">{r.id}</span>
+          </p>
           <button
             type="button"
-            disabled={returnConfirmed}
-            onClick={() => {
-              setReturnConfirmed(true);
-              setBannerMsg("Pengembalian alat CT-2026-085 berhasil diverifikasi & stok dikembalikan.");
-            }}
-            className="w-full py-2.5 rounded-full font-semibold text-sm cursor-pointer flex items-center justify-center gap-2 transition-colors"
-            style={{
-              ...bodyFont,
-              backgroundColor: returnConfirmed ? `${C.moss}26` : C.forest,
-              color: returnConfirmed ? C.moss : C.paper,
-            }}
+            disabled={actionLoading === r.id}
+            onClick={() => handleReturnConfirm(r.id)}
+            className="w-full py-2 rounded-full font-semibold text-xs cursor-pointer flex items-center justify-center gap-2 transition-colors"
+            style={{ ...bodyFont, backgroundColor: C.forest, color: C.paper }}
           >
-            {returnConfirmed ? (
-              <>
-                <Check size={16} /> Pengembalian Telah Dikonfirmasi
-              </>
+            {actionLoading === r.id ? (
+              <Loader2 size={14} className="animate-spin" />
             ) : (
-              "Konfirmasi Pengembalian"
+              <>
+                <Check size={14} /> Konfirmasi Pengembalian
+              </>
             )}
           </button>
         </div>
+      ))}
+    </div>
+  )}
+</div>
       </div>
       {/* POPUP DETAIL PENYEWA */}
       {selectedQueue && (
