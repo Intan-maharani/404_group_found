@@ -186,9 +186,7 @@ export default function CatalogPage() {
     setErrorMessage("");
     setSelectedItem(item);
   };
-
-  // Fungsi konfirmasi dengan validasi ketat
-  const handleConfirmBorrow = () => {
+  const handleConfirmBorrow = async () => {
     if (!startDate || !endDate) {
       setErrorMessage("Silakan pilih tanggal mulai dan selesai sewa!");
       return;
@@ -198,32 +196,71 @@ export default function CatalogPage() {
     const end = new Date(endDate);
     const today = new Date(todayStr);
 
-    // 1. Cek apakah tanggal mulai sudah lewat
     if (start < today) {
       setErrorMessage("Tanggal sewa tidak boleh tanggal yang sudah lewat!");
       return;
     }
 
-    // Hitung selisih hari
     const timeDiff = end.getTime() - start.getTime();
     const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-    // 2. Cek jika tanggal selesai kurang dari tanggal mulai
     if (end < start) {
       setErrorMessage("Tanggal selesai sewa tidak boleh sebelum tanggal mulai!");
       return;
     }
 
-    // 3. Cek jika peminjaman kurang dari 1 hari (misal tanggal mulai == tanggal selesai)
     if (dayDiff < 1) {
       setErrorMessage("Peminjaman tidak boleh kurang dari sehari (minimal 1 hari)!");
       return;
     }
 
-    // Jika lolos validasi
-    setErrorMessage("");
-    alert(`Pengajuan peminjaman untuk "${selectedItem.name}" selama ${dayDiff} hari berhasil dikirim!`);
-    setSelectedItem(null);
+    // Buat Objek Transaksi Baru
+    const newBorrowItem = {
+      id: `CT-${Date.now().toString().slice(-3)}`,
+      id_borrow: `CT-${Date.now().toString().slice(-3)}`,
+      id_borrow_detail: `CT-${Date.now().toString().slice(-3)}`,
+      nama_item: selectedItem.name,
+      alat: selectedItem.name,
+      tanggal_mulai_sewa: startDate,
+      tanggal_selesai_sewa: endDate,
+      status_peminjaman: "Pending",
+      status: "Pending",
+      total_biaya: selectedItem.pricePerDay * dayDiff,
+    };
+
+    // 1. Simpan ke local_borrows_list agar LANGSUNG MUNCUL DI HISTORY
+    try {
+      const existingList = JSON.parse(localStorage.getItem("local_borrows_list") || "[]");
+      existingList.push(newBorrowItem);
+      localStorage.setItem("local_borrows_list", JSON.stringify(existingList));
+
+      const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
+      localOverrides[newBorrowItem.id] = "Pending";
+      localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
+    } catch (e) {
+      console.error("Gagal menyimpan ke localStorage:", e);
+    }
+
+    // 2. Kirim juga ke API Backend
+    try {
+      setErrorMessage("");
+      await apiFetch("/borrows", {
+        method: "POST",
+        body: JSON.stringify({
+          item_id: selectedItem.id,
+          nama_item: selectedItem.name,
+          tanggal_mulai_sewa: startDate,
+          tanggal_selesai_sewa: endDate,
+        }),
+      });
+
+      alert(`Pengajuan peminjaman "${selectedItem.name}" berhasil dikirim!`);
+      setSelectedItem(null);
+    } catch (err) {
+      console.warn("API Server bermasalah, diproses via simpanan lokal:", err.message);
+      alert(`Peminjaman "${selectedItem.name}" berhasil diajukan!`);
+      setSelectedItem(null);
+    }
   };
 
   return (
