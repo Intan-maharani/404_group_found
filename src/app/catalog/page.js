@@ -2,157 +2,19 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Package, ShoppingBag, Calendar, CheckCircle2, X, AlertCircle, ShieldAlert } from "lucide-react";
-
-export const initialItems = [
-  // Paket Bundle (>1 Paket)
-  {
-    id: "p1",
-    name: "Paket Piknik Estetik Romance (2 Orang)",
-    category: "Bundle",
-    pricePerDay: 45000,
-    available: 8,
-    image: "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg",
-    description: "Cocok untuk kencan/photo-session pasangan: Termasuk 1x Tikar Estetik, 1x Keranjang Piknik Anyaman, 1x Kamera Kayu Polaroid, dan 1x Set Piring & Gelas Estetik.",
-  },
-  {
-    id: "p2",
-    name: "Paket Masak & Santai Ceria (3-4 Orang)",
-    category: "Bundle",
-    pricePerDay: 58000,
-    available: 10,
-    image: "https://i.pinimg.com/1200x/22/7c/57/227c579eff9f406f3d6a8be2898878e9.jpg",
-    description: "Solusi hemat BBQ/masak di alam: Termasuk 1x Tikar Estetik, 1x Meja Lipat Portable, 1x Kompor Camping Portable, dan 1x Nesting Cooking Set (DS-308).",
-  },
-  {
-    id: "p3",
-    name: "Paket Teduh & Chill Outdoor",
-    category: "Bundle",
-    pricePerDay: 80000,
-    available: 6,
-    image: "https://i.pinimg.com/1200x/b5/05/90/b505908b5b6b135b4deb6ec646b58e98.jpg",
-    description: "Perlengkapan bersantai bebas panas terik: Termasuk 1x Tenda Semi Outdoor, 1x Meja Lipat Portable, 2x Kursi Lipat Outdoor, dan 1x Tikar Estetik.",
-  },
-  {
-    id: "p4",
-    name: "Paket Piknik Senja to Night",
-    category: "Bundle",
-    pricePerDay: 50000,
-    available: 8,
-    image: "https://i.pinimg.com/1200x/0d/00/89/0d0089ef47d6b4662c48e4fb87a1ab3a.jpg",
-    description: "Lengkap hingga malam hari: Termasuk 1x Tikar Estetik, 1x Kompor Camping, 1x Nesting Cooking Set, 1x Lampu Lentera LED, dan 1x Set Piring & Gelas.",
-  },
-  {
-    id: "p5",
-    name: "Paket Sultan Complete Picnic (Group/Family)",
-    category: "Bundle",
-    pricePerDay: 135000,
-    available: 5,
-    image: "https://i.pinimg.com/736x/a1/33/7c/a1337c0f57986eed9892408baeecda3f.jpg",
-    description: "Paket komplit tanpa repot: Termasuk Tenda Semi Outdoor, Meja Lipat, 2x Kursi Lipat, Tikar Estetik, Keranjang, Kompor + Nesting, Kamera Polaroid, dan Lampu LED.",
-  },
-
-  // Barang Satuan (>5 Barang)
-  {
-    id: "s1",
-    name: "Tenda Semi Outdoor",
-    category: "Satuan",
-    pricePerDay: 45000,
-    available: 10,
-    image: "https://i.pinimg.com/1200x/ef/ad/a8/efada842dbe689ef1f1965066334aa15.jpg",
-    description: "Tenda peneduh praktis berbahan waterproof, cocok untuk kenyamanan bersantai saat piknik.",
-  },
-  {
-    id: "s2",
-    name: "Meja Lipat Portable",
-    category: "Satuan",
-    pricePerDay: 25000,
-    available: 20,
-    image: "https://i.pinimg.com/1200x/15/12/96/1512966f6740af8e5dfd232fd53e4e3c.jpg",
-    description: "Meja lipat aluminium yang praktis, ringan, dan kokoh untuk menaruh makanan dan minuman.",
-  },
-  {
-    id: "s3",
-    name: "Kompor Camping Portable",
-    category: "Satuan",
-    pricePerDay: 12000,
-    available: 15,
-    image: "https://i.pinimg.com/1200x/31/01/df/3101df18a97b2794789a828e41baa41e.jpg",
-    description: "Kompor mini praktis dan tahan angin, cocok untuk memasak atau menyeduh minuman hangat saat piknik di alam terbuka.",
-  },
-  {
-    id: "s4",
-    name: "Nesting Cooking Set (DS-308)",
-    category: "Satuan",
-    pricePerDay: 15000,
-    available: 12,
-    image: "https://i.pinimg.com/1200x/6e/b9/b6/6eb9b69d07a65e4fc2c3cfa00baecea4.jpg",
-    description: "Panci dan teko aluminium ringan 3-in-1 serbaguna.",
-  },
-  {
-    id: "s5",
-    name: "Kursi Lipat Outdoor Portable",
-    category: "Satuan",
-    pricePerDay: 10000,
-    available: 25,
-    image: "https://i.pinimg.com/1200x/43/ce/34/43ce349498c499ed40faafcc5d076cfd.jpg",
-    description: "Kursi lipat yang nyaman dan mampu menahan beban hingga 100kg.",
-  },
-  {
-    id: "s6",
-    name: "Lampu Lentera LED",
-    category: "Satuan",
-    pricePerDay: 8000,
-    available: 18,
-    image: "https://i.pinimg.com/736x/5d/21/a2/5d21a23c02ba4139255a10477f5d02d4.jpg",
-    description: "Lampu penerangan portable rechargeable yang tahan air.",
-  },
-  {
-    id: "s7",
-    name: "Keranjang Piknik Anyaman",
-    category: "Satuan",
-    pricePerDay: 20000,
-    available: 10,
-    image: "https://i.pinimg.com/1200x/f0/65/ee/f065ee9cf7081b815e2a15d5404e4f21.jpg",
-    description: "Keranjang piknik klasik estetis dengan kapasitas luas untuk membawa makanan dan perlengkapan.",
-  },
-  {
-    id: "s8",
-    name: "Tikar Piknik Estetik Motif Kotak",
-    category: "Satuan",
-    pricePerDay: 15000,
-    available: 20,
-    image: "https://i.pinimg.com/736x/e0/1c/96/e01c96951ac573ef9ec3611bdd230d83.jpg",
-    description: "Tikar piknik kain berlapir waterproof dengan motif kotak-kotak klasik yang cantik dan nyaman untuk properti foto.",
-  },
-  {
-    id: "s9",
-    name: "Piring & Gelas Estetik",
-    category: "Satuan",
-    pricePerDay: 10000,
-    available: 15,
-    image: "https://down-id.img.susercontent.com/file/id-11134207-7ra0q-mcbr0lx7zc9l60_tn",
-    description: "Set 1 piring dan 1 gelas berdesain kayu/keramik estetik yang food-grade, cocok untuk melengkapi suasana makan saat piknik.",
-  },
-  {
-    id: "s10",
-    name: "Kamera Kayu Polaroid",
-    category: "Satuan",
-    pricePerDay: 10000,
-    available: 10,
-    image: "https://i.pinimg.com/736x/79/c0/d7/79c0d783113ba2771fc348f4077ff421.jpg",
-    description: "Kamera cetak langsung dengan bodi sentuhan kayu estetik. Cocok untuk mengabadikan momen instan sekaligus properti foto piknik yang Instagrammable.",
-  },
-];
+import { Package, ShoppingBag, Calendar, CheckCircle2, X, AlertCircle, ShieldAlert, RefreshCw } from "lucide-react";
+import { apiFetch } from "../../lib/api";
 
 export default function CatalogPage() {
+  const [bundleItems, setBundleItems] = useState([]);
+  const [satuanItems, setSatuanItems] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState(null);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // Cek peran user dari localStorage secara reaktif
   useEffect(() => {
     const updateRole = () => {
       try {
@@ -178,7 +40,54 @@ export default function CatalogPage() {
     };
   }, []);
 
-  // Dapatkan tanggal hari ini dalam format YYYY-MM-DD
+  const loadCatalogData = async () => {
+    setLoading(true);
+    let fetchedBundles = [];
+    let fetchedSatuan = [];
+
+    // 1. Ambil data Paket dari endpoint /packages
+    try {
+      const resPkg = await apiFetch("/packages");
+      const rawPkg = Array.isArray(resPkg) ? resPkg : (resPkg?.data || []);
+      fetchedBundles = rawPkg.map((pkg, idx) => ({
+        id: pkg.uuid || pkg.id || `pkg-${idx}`,
+        name: pkg.nama_paket || pkg.name || "Paket Camping",
+        category: "Bundle",
+        pricePerDay: Number(pkg.harga_paket_hari || pkg.harga || pkg.pricePerDay) || 100000,
+        available: Number(pkg.stok || pkg.available) || 5,
+        image: pkg.ikon || pkg.image || "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg",
+        description: pkg.deskripsi || pkg.description || "Paket bundle hemat untuk kegiatan camping dan piknik.",
+      }));
+    } catch (e) {
+      console.log("Gagal memuat endpoint /packages:", e);
+    }
+
+    // 2. Ambil data Barang Satuan dari endpoint /items
+    try {
+      const resItem = await apiFetch("/items");
+      const rawItem = Array.isArray(resItem) ? resItem : (resItem?.data || []);
+      fetchedSatuan = rawItem.map((item, idx) => ({
+        id: item.uuid || item.id || `item-${idx}`,
+        name: item.nama_item || item.name || "Barang Satuan",
+        category: "Satuan",
+        pricePerDay: Number(item.harga_sewa_hari || item.harga_sewa || item.pricePerDay) || 25000,
+        available: Number(item.stok_tersedia ?? item.available) ?? 10,
+        image: item.ikon_item || item.image || "https://i.pinimg.com/1200x/ef/ad/a8/efada842dbe689ef1f1965066334aa15.jpg",
+        description: item.deskripsi || item.description || "Peralatan satuan berkualitas untuk kebutuhan outdoor Anda.",
+      }));
+    } catch (e) {
+      console.log("Gagal memuat endpoint /items:", e);
+    }
+
+    setBundleItems(fetchedBundles);
+    setSatuanItems(fetchedSatuan);
+    setLoading(false);
+  };
+
+  useEffect(() => {
+    loadCatalogData();
+  }, []);
+
   const getTodayString = () => {
     const today = new Date();
     return today.toISOString().split("T")[0];
@@ -186,10 +95,9 @@ export default function CatalogPage() {
 
   const todayStr = getTodayString();
 
-  // Membuka modal peminjaman dan mengatur tanggal awal
   const handleOpenBorrowModal = (item) => {
     if (isAdmin) {
-      alert("Akun Admin tidak diizinkan meminjam barang. Fitur peminjaman hanya untuk akun User.");
+      alert("Akun Admin tidak diizinkan meminjam barang. Peminjaman hanya untuk akun User.");
       return;
     }
 
@@ -205,8 +113,7 @@ export default function CatalogPage() {
     setSelectedItem(item);
   };
 
-  // Fungsi konfirmasi dengan validasi ketat
-const handleConfirmBorrow = async () => {
+  const handleConfirmBorrow = async () => {
     if (!startDate || !endDate) {
       setErrorMessage("Silakan pilih tanggal mulai dan selesai sewa!");
       return;
@@ -234,68 +141,79 @@ const handleConfirmBorrow = async () => {
       return;
     }
 
-    // Buat Objek Transaksi Baru
-    const newBorrowItem = {
-      id: `CT-${Date.now().toString().slice(-3)}`,
-      id_borrow: `CT-${Date.now().toString().slice(-3)}`,
-      id_borrow_detail: `CT-${Date.now().toString().slice(-3)}`,
-      nama_item: selectedItem.name,
-      alat: selectedItem.name,
+    let sessionUser = { id: "71cedae5-a3e9-a9dd-47a4-b6919bb07701", username: "ayuay" };
+    try {
+      const storedUser = localStorage.getItem("session_user");
+      if (storedUser) sessionUser = JSON.parse(storedUser);
+    } catch (e) {}
+
+    const borrowId = `CT-${Date.now().toString().slice(-4)}`;
+    const payload = {
+      uuid: borrowId,
+      id: borrowId,
+      user_id: sessionUser.id || sessionUser.uuid || "71cedae5-a3e9-a9dd-47a4-b6919bb07701",
+      user_nama: sessionUser.username || sessionUser.email || "ayuay",
+      tanggal_pengajuan: new Date().toISOString().split("T")[0],
       tanggal_mulai_sewa: startDate,
       tanggal_selesai_sewa: endDate,
-      status_peminjaman: "Pending",
-      status: "Pending",
+      tgl_mulai_sewa: startDate,
+      tgl_selesai_sewa: endDate,
+      nama_item: selectedItem.name,
+      alat: selectedItem.name,
       total_biaya: selectedItem.pricePerDay * dayDiff,
+      status: "Pending",
     };
 
-    // 1. Simpan ke local_borrows_list agar LANGSUNG MUNCUL DI HISTORY
+    // Simpan ke localStorage terlebih dahulu agar dijamin langsung muncul di Riwayat
     try {
       const existingList = JSON.parse(localStorage.getItem("local_borrows_list") || "[]");
-      existingList.push(newBorrowItem);
+      existingList.push(payload);
       localStorage.setItem("local_borrows_list", JSON.stringify(existingList));
 
       const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
-      localOverrides[newBorrowItem.id] = "Pending";
+      localOverrides[borrowId] = "Pending";
       localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
     } catch (e) {
-      console.error("Gagal menyimpan ke localStorage:", e);
+      console.error("Gagal simpan lokal:", e);
     }
 
-    // 2. Kirim juga ke API Backend
+    // Coba kirim ke API backend, jika gagal tetap sukses lewat penyimpanan lokal
     try {
-      setErrorMessage("");
       await apiFetch("/borrows", {
         method: "POST",
-        body: JSON.stringify({
-          item_id: selectedItem.id,
-          nama_item: selectedItem.name,
-          tanggal_mulai_sewa: startDate,
-          tanggal_selesai_sewa: endDate,
-        }),
+        body: JSON.stringify(payload),
       });
-
-      alert(`Pengajuan peminjaman "${selectedItem.name}" berhasil dikirim!`);
-      setSelectedItem(null);
     } catch (err) {
-      console.warn("API Server bermasalah, diproses via simpanan lokal:", err.message);
-      alert(`Peminjaman "${selectedItem.name}" berhasil diajukan!`);
-      setSelectedItem(null);
+      console.warn("Backend API POST diabaikan, diproses via lokal:", err);
     }
+
+    alert(`Pengajuan peminjaman "${selectedItem.name}" berhasil diajukan!`);
+    setSelectedItem(null);
+    window.location.href = "/history";
   };
 
   return (
     <div className="p-4 sm:p-8 bg-slate-50 min-h-screen text-slate-800">
-      {/* Header Section */}
-      <div className="max-w-7xl mx-auto mb-8 text-center sm:text-left">
-        <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
-          Katalog Peminjaman Alat Piknik
-        </h1>
-        <p className="text-slate-600 text-base sm:text-lg">
-          Pilih paket bundle hemat atau peralatan satuan berkualitas untuk liburan seru Anda.
-        </p>
+      <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 tracking-tight mb-2">
+            Katalog Peminjaman Alat Piknik
+          </h1>
+          <p className="text-slate-600 text-base sm:text-lg">
+            Pilih paket glamping/bundle atau peralatan satuan langsung dari database.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={loadCatalogData}
+          disabled={loading}
+          className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold cursor-pointer border border-stone-200 bg-white hover:bg-stone-50 transition-colors self-start sm:self-auto shadow-xs text-slate-700"
+        >
+          <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
+          <span>{loading ? "Memuat..." : "Refresh Katalog"}</span>
+        </button>
       </div>
 
-      {/* Banner Khusus Mode Admin */}
       {isAdmin && (
         <div className="max-w-7xl mx-auto mb-8 p-4 bg-amber-50 border border-amber-300 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-amber-900 shadow-sm">
           <div className="flex items-center gap-3">
@@ -305,7 +223,7 @@ const handleConfirmBorrow = async () => {
             <div>
               <p className="font-bold text-sm text-stone-900">Mode Administrator Aktif</p>
               <p className="text-xs text-amber-800">
-                Anda masuk sebagai <strong>Admin</strong>. Anda hanya dapat memantau stok dan katalog. Tombol peminjaman dinonaktifkan khusus untuk akun pengelola/admin.
+                Anda masuk sebagai <strong>Admin</strong>. Tombol peminjaman dinonaktifkan khusus untuk akun pengelola/admin.
               </p>
             </div>
           </div>
@@ -319,150 +237,159 @@ const handleConfirmBorrow = async () => {
       )}
 
       <div className="max-w-7xl mx-auto space-y-12">
-        {/* Section 1: Paket Bundle */}
-        <section>
-          <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
-            <Package className="text-emerald-600 w-6 h-6" />
-            <h2 className="text-2xl font-bold text-slate-900">Paket Bundle Hemat</h2>
-          </div>
+        {loading ? (
+          <div className="text-center py-20 text-slate-400 text-sm">Memuat data paket dan item dari database...</div>
+        ) : (
+          <>
+            {/* Section 1: Paket Glamping / Bundle (Dari tabel /packages) */}
+            {bundleItems.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
+                  <Package className="text-emerald-600 w-6 h-6" />
+                  <h2 className="text-2xl font-bold text-slate-900">Paket Glamping & Bundle</h2>
+                </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {initialItems
-              .filter((i) => i.category === "Bundle")
-              .map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col overflow-hidden group"
-                >
-                  <div className="relative h-48 w-full overflow-hidden bg-slate-100 shrink-0">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
-                      {item.category}
-                    </span>
-                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200">
-                      Stok: {item.available}
-                    </span>
-                  </div>
-
-                  <div className="p-5 flex flex-col flex-1 justify-between">
-                    <div>
-                      <h3 className="font-bold text-lg text-slate-900 group-hover:text-emerald-600 transition-colors">
-                        {item.name}
-                      </h3>
-                      <p className="text-slate-600 text-sm mt-2 leading-relaxed">
-                        {item.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-1 overflow-hidden">
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[10px] text-slate-400 block leading-none mb-1">Sewa / Hari</span>
-                        <span className="font-extrabold text-emerald-600 text-xs sm:text-sm whitespace-nowrap tracking-tight block">
-                          Rp {item.pricePerDay.toLocaleString("id-ID")}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {bundleItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col overflow-hidden group"
+                    >
+                      <div className="relative h-48 w-full overflow-hidden bg-slate-100 shrink-0">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.target.src = "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg";
+                          }}
+                        />
+                        <span className="absolute top-3 left-3 bg-emerald-600 text-white text-xs font-semibold px-3 py-1 rounded-full shadow-sm">
+                          Paket Glamping
+                        </span>
+                        <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200">
+                          Stok: {item.available}
                         </span>
                       </div>
-                      {!isAdmin ? (
-                        <button
-                          onClick={() => handleOpenBorrowModal(item)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2 py-1.5 rounded-lg text-[11px] transition-colors shadow-sm shrink-0 whitespace-nowrap"
-                        >
-                          Pinjam Paket
-                        </button>
-                      ) : (
-                        <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
-                          Mode Admin
-                        </span>
-                      )}
+
+                      <div className="p-5 flex flex-col flex-1 justify-between">
+                        <div>
+                          <h3 className="font-bold text-lg text-slate-900 group-hover:text-emerald-600 transition-colors">
+                            {item.name}
+                          </h3>
+                          <p className="text-slate-600 text-sm mt-2 leading-relaxed line-clamp-3">
+                            {item.description}
+                          </p>
+                        </div>
+
+                        <div className="mt-auto pt-3 border-t border-slate-100 flex items-center justify-between gap-1 overflow-hidden">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-[10px] text-slate-400 block leading-none mb-1">Sewa / Hari</span>
+                            <span className="font-extrabold text-emerald-600 text-xs sm:text-sm whitespace-nowrap tracking-tight block">
+                              Rp {item.pricePerDay.toLocaleString("id-ID")}
+                            </span>
+                          </div>
+                          {!isAdmin ? (
+                            <button
+                              onClick={() => handleOpenBorrowModal(item)}
+                              className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-3 py-1.5 rounded-lg text-xs transition-colors shadow-sm shrink-0 whitespace-nowrap cursor-pointer"
+                            >
+                              Pinjam Paket
+                            </button>
+                          ) : (
+                            <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
+                              Mode Admin
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-          </div>
-        </section>
+              </section>
+            )}
 
-        {/* Section 2: Barang Satuan */}
-        <section>
-          <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
-            <ShoppingBag className="text-emerald-600 w-6 h-6" />
-            <h2 className="text-2xl font-bold text-slate-900">Barang Satuan Camping & Piknik</h2>
-          </div>
+            {/* Section 2: Barang Satuan (Dari tabel /items) */}
+            {satuanItems.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
+                  <ShoppingBag className="text-emerald-600 w-6 h-6" />
+                  <h2 className="text-2xl font-bold text-slate-900">Barang Satuan Camping & Piknik</h2>
+                </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {initialItems
-              .filter((i) => i.category === "Satuan")
-              .map((item) => (
-                <div
-                  key={item.id}
-                  className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col overflow-hidden group"
-                >
-                  <div className="relative h-44 w-full overflow-hidden bg-slate-100 shrink-0">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <span className="absolute top-3 left-3 bg-slate-800 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-sm">
-                      {item.category}
-                    </span>
-                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full border border-slate-200">
-                      Stok: {item.available}
-                    </span>
-                  </div>
-
-                  <div className="p-4 flex flex-col flex-1 justify-between">
-                    <div>
-                      <h3 className="font-bold text-base text-slate-900 group-hover:text-emerald-600 transition-colors">
-                        {item.name}
-                      </h3>
-                      <p className="text-slate-500 text-xs mt-1.5 leading-relaxed">
-                        {item.description}
-                      </p>
-                    </div>
-
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center gap-1.5">
-                      <div className="shrink-0">
-                        <span className="text-[10px] text-slate-400 block leading-tight">Sewa / Hari</span>
-                        <span className="font-bold text-emerald-600 text-xs sm:text-sm whitespace-nowrap">
-                          Rp {item.pricePerDay.toLocaleString("id-ID")}
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                  {satuanItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow duration-300 border border-slate-100 flex flex-col overflow-hidden group"
+                    >
+                      <div className="relative h-44 w-full overflow-hidden bg-slate-100 shrink-0">
+                        <img
+                          src={item.image}
+                          alt={item.name}
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          onError={(e) => {
+                            e.target.src = "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg";
+                          }}
+                        />
+                        <span className="absolute top-3 left-3 bg-slate-800 text-white text-[11px] font-semibold px-2.5 py-0.5 rounded-full shadow-sm">
+                          Satuan
+                        </span>
+                        <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2 py-0.5 rounded-full border border-slate-200">
+                          Stok: {item.available}
                         </span>
                       </div>
-                      {!isAdmin ? (
-                        <button
-                          onClick={() => handleOpenBorrowModal(item)}
-                          className="bg-slate-900 hover:bg-emerald-600 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs transition-colors active:scale-95 duration-150 shrink-0 whitespace-nowrap"
-                        >
-                          Pinjam
-                        </button>
-                      ) : (
-                        <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
-                          Mode Admin
-                        </span>
-                      )}
+
+                      <div className="p-4 flex flex-col flex-1 justify-between">
+                        <div>
+                          <h3 className="font-bold text-base text-slate-900 group-hover:text-emerald-600 transition-colors">
+                            {item.name}
+                          </h3>
+                          <p className="text-slate-500 text-xs mt-1.5 leading-relaxed line-clamp-2">
+                            {item.description}
+                          </p>
+                        </div>
+
+                        <div className="mt-4 pt-3 border-t border-slate-100 flex justify-between items-center gap-1.5">
+                          <div className="shrink-0">
+                            <span className="text-[10px] text-slate-400 block leading-tight">Sewa / Hari</span>
+                            <span className="font-bold text-emerald-600 text-xs sm:text-sm whitespace-nowrap">
+                              Rp {item.pricePerDay.toLocaleString("id-ID")}
+                            </span>
+                          </div>
+                          {!isAdmin ? (
+                            <button
+                              onClick={() => handleOpenBorrowModal(item)}
+                              className="bg-slate-900 hover:bg-emerald-600 text-white font-medium px-3 py-1.5 rounded-lg text-xs transition-colors active:scale-95 duration-150 shrink-0 whitespace-nowrap cursor-pointer"
+                            >
+                              Pinjam
+                            </button>
+                          ) : (
+                            <span className="text-[10px] bg-amber-100 text-amber-900 font-bold px-2 py-1 rounded-lg border border-amber-300 shrink-0">
+                              Mode Admin
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
-          </div>
-        </section>
+              </section>
+            )}
+          </>
+        )}
       </div>
 
-      {/* Modal Popup Pinjam */}
       {selectedItem && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
           <div className="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl relative border border-slate-100 space-y-6 max-h-[90vh] overflow-y-auto">
-            {/* Close Button */}
             <button
               onClick={() => setSelectedItem(null)}
-              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors"
+              className="absolute top-5 right-5 text-slate-400 hover:text-slate-600 p-1 rounded-full hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
 
-            {/* Modal Header */}
             <div>
               <span className="text-xs font-semibold tracking-wider text-emerald-600 uppercase bg-emerald-50 px-2.5 py-1 rounded-full">
                 Formulir Peminjaman
@@ -477,7 +404,6 @@ const handleConfirmBorrow = async () => {
               </p>
             </div>
 
-            {/* Pesan Error Validasi */}
             {errorMessage && (
               <div className="bg-red-50 border border-red-200 text-red-600 p-3 rounded-xl text-xs font-medium flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
@@ -485,7 +411,6 @@ const handleConfirmBorrow = async () => {
               </div>
             )}
 
-            {/* Date Pickers */}
             <div className="space-y-4">
               <div>
                 <label className="block text-xs font-semibold text-slate-700 mb-1 flex items-center gap-1.5">
@@ -520,17 +445,16 @@ const handleConfirmBorrow = async () => {
               </div>
             </div>
 
-            {/* Action Buttons */}
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setSelectedItem(null)}
-                className="w-1/2 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors"
+                className="w-1/2 py-2.5 border border-slate-200 text-slate-600 rounded-xl text-sm font-semibold hover:bg-slate-50 transition-colors cursor-pointer"
               >
                 Batal
               </button>
               <button
                 onClick={handleConfirmBorrow}
-                className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm"
+                className="w-1/2 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-colors flex items-center justify-center gap-1.5 shadow-sm cursor-pointer"
               >
                 <CheckCircle2 className="w-4 h-4" /> Konfirmasi
               </button>
