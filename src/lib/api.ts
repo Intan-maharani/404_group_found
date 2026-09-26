@@ -20,7 +20,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   if (bearerToken) {
     headers["Authorization"] = `Bearer ${bearerToken}`; // Layer 2: User Session JWT
   }
-
+  console.log("URL API:", url);
   const res = await fetch(url, {
     ...options,
     headers: {
