@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Clock3, CheckCircle2, XCircle, Backpack, RotateCcw, RefreshCw } from "lucide-react";
 import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow } from "../../components/Shared";
@@ -25,11 +26,26 @@ function normalizeStatus(rawStatus = "") {
 }
 
 export default function HistoryPage() {
+  const router = useRouter();
+  const [isAuthorized, setIsAuthorized] = useState(false);
   const [riwayat, setRiwayat] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
   const [returning, setReturning] = useState(false);
+
+  // ROUTE GUARD: Cek autentikasi secara ketat saat komponen dimuat
+  useEffect(() => {
+    const sessionUser = localStorage.getItem("session_user");
+    const token = localStorage.getItem("token");
+    const user = localStorage.getItem("user");
+
+    if (!sessionUser && !token && !user) {
+      router.replace("/auth");
+    } else {
+      setIsAuthorized(true);
+    }
+  }, [router]);
 
   const filteredRiwayat = riwayat.filter((item) => {
     if (activeFilter === "ALL") return true;
@@ -44,7 +60,6 @@ export default function HistoryPage() {
     return riwayat.filter((r) => r.status.toLowerCase() === statusKey.toLowerCase()).length;
   };
 
-  // Ambil data murni dari endpoint database /borrows
   const loadBorrows = useCallback(async (isBackgroundFetch = false) => {
     if (!isBackgroundFetch) setLoading(true);
 
@@ -56,19 +71,12 @@ export default function HistoryPage() {
       const localNames = JSON.parse(localStorage.getItem("borrow_item_names") || "{}");
 
       const mapped = apiList.map((b, idx) => {
-        // Menyesuaikan dengan kolom database Anda: id_peminjaman
         const displayId = b.id_peminjaman || b.uuid || b.id || `CT-${String(idx + 1).padStart(3, "0")}`;
-        
         const startDate = b.tanggal_mulai_sewa || b.tgl_mulai_sewa || "Hari ini";
         const endDate = b.tanggal_selesai_sewa || b.tgl_selesai_sewa || "Selesai";
-        
         const rawBiaya = Number(b.total_biaya || b.total_harga || 50000);
         const rawStatus = localOverrides[displayId] || b.status_peminjaman || b.status || "pending";
-        
-        // Otomatis membaca nama barang dari database (nama_item / alat) atau fallback ke localStorage / urutan
         const namaBarang = b.nama_item || b.alat || localNames[displayId] || `Peminjaman Alat #${idx + 1}`;
-        
-        // Otomatis membaca nama user dari database (user_nama / nama_user) atau fallback
         const namaUser = b.user_nama || b.nama_user || b.username || "Penyewa";
 
         return {
@@ -82,12 +90,11 @@ export default function HistoryPage() {
         };
       });
 
-      // Urutkan dari data terbaru di database
       const finalResult = mapped.reverse();
       setRiwayat(finalResult);
       setSelectedId((prev) => prev || finalResult[0]?.id || "");
     } catch (e) {
-      console.error("Gagal mengambil data riwayat dari database:", e);
+      console.error("Gagal mengambil data riwayat:", e);
     } finally {
       if (!isBackgroundFetch) setLoading(false);
     }
@@ -108,10 +115,20 @@ export default function HistoryPage() {
   };
 
   useEffect(() => {
+    if (!isAuthorized) return;
     loadBorrows();
     const intervalId = setInterval(() => loadBorrows(true), 3000);
     return () => clearInterval(intervalId);
-  }, [loadBorrows]);
+  }, [isAuthorized, loadBorrows]);
+
+  // Jika belum terverifikasi login, tampilkan layar kosong / loading agar halaman tidak bocor
+  if (!isAuthorized) {
+    return (
+      <div className="flex items-center justify-center min-h-[60vh] text-xs text-stone-400">
+        Memverifikasi sesi pengguna...
+      </div>
+    );
+  }
 
   return (
     <div>

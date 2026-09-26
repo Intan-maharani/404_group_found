@@ -2,12 +2,12 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; // <-- 1. Pastikan router di-import
+import { useRouter } from "next/navigation"; 
 import { Package, ShoppingBag, Calendar, CheckCircle2, X, AlertCircle, ShieldAlert, RefreshCw } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 
 export default function CatalogPage() {
-  const router = useRouter(); // <-- 2. Inisialisasi router agar tidak error
+  const router = useRouter(); 
   const [bundleItems, setBundleItems] = useState([]);
   const [satuanItems, setSatuanItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,17 +17,20 @@ export default function CatalogPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // ROUTE GUARD: Cek apakah user sudah login atau belum
   useEffect(() => {
+    const sessionUserStr = localStorage.getItem("session_user");
+    if (!sessionUserStr) {
+      // Jika belum login / tamu, paksa arahkan ke halaman utama/autentikasi
+      router.replace("/auth");
+      return;
+    }
+
     const updateRole = () => {
       try {
-        const sessionUserStr = localStorage.getItem("session_user");
-        if (sessionUserStr) {
-          const userObj = JSON.parse(sessionUserStr);
-          const role = String(userObj.role || "").toLowerCase().trim();
-          setIsAdmin(role === "admin");
-        } else {
-          setIsAdmin(false);
-        }
+        const userObj = JSON.parse(sessionUserStr);
+        const role = String(userObj.role || "").toLowerCase().trim();
+        setIsAdmin(role === "admin");
       } catch (err) {
         setIsAdmin(false);
       }
@@ -40,7 +43,7 @@ export default function CatalogPage() {
       window.removeEventListener("auth-change", updateRole);
       window.removeEventListener("storage", updateRole);
     };
-  }, []);
+  }, [router]);
 
   const loadCatalogData = async () => {
     setLoading(true);
@@ -109,7 +112,6 @@ export default function CatalogPage() {
 
     const formatDate = (date) => date.toISOString().split("T")[0];
 
-    // Tanggal mulai sewa otomatis ter-update ke hari ini setiap kali form dibuka
     setStartDate(formatDate(today));
     setEndDate(formatDate(tomorrow));
     setErrorMessage("");
@@ -144,7 +146,6 @@ export default function CatalogPage() {
       return;
     }
 
-    // Menggunakan format UUID v4 standar agar lolos validasi database backend
     const generateUuid = () => {
       return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
         var r = (Math.random() * 16) | 0,
@@ -164,7 +165,6 @@ export default function CatalogPage() {
       }
     } catch (e) {}
 
-    // Payload lengkap yang disesuaikan agar diterima oleh struktur database
     const borrowPayload = {
       id_peminjaman: generateUuid(),
       id_user: sessionUser.id,
@@ -177,14 +177,11 @@ export default function CatalogPage() {
     };
 
     try {
-      console.log("Mengirim data peminjaman:", borrowPayload);
-
       const response = await apiFetch("/borrows", {
         method: "POST",
         body: JSON.stringify(borrowPayload),
       });
 
-      console.log("Berhasil disimpan ke database:", response);
       alert(`Berhasil! Pengajuan peminjaman "${selectedItem.name}" telah masuk ke database.`);
       setSelectedItem(null);
       router.push("/history");
@@ -243,7 +240,6 @@ export default function CatalogPage() {
           <div className="text-center py-20 text-slate-400 text-sm">Memuat data paket dan item dari database...</div>
         ) : (
           <>
-            {/* Section 1: Paket Glamping / Bundle (Dari tabel /packages) */}
             {bundleItems.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
@@ -311,7 +307,6 @@ export default function CatalogPage() {
               </section>
             )}
 
-            {/* Section 2: Barang Satuan (Dari tabel /items) */}
             {satuanItems.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">

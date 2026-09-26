@@ -68,7 +68,7 @@ export default function AuthPage() {
             role: form.email.toLowerCase().includes("admin") ? "admin" : "user",
           };
 
-          // Pastikan field id selalu ada, dan name gak null
+          
           if (!loggedUser.name) {
             loggedUser.name = form.email.split("@")[0];
           }
