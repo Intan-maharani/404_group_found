@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://hmif.if.unram.ac.id/api/v3/docs/";
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://hmif.if.unram.ac.id/api/v3";
 const PROJECT = process.env.NEXT_PUBLIC_PROJECT_ID || "chilltime";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "pk_chilltime_5d3aecbbf3a38e1f";
 
@@ -20,7 +20,7 @@ export async function apiFetch(endpoint: string, options: RequestInit = {}) {
   if (bearerToken) {
     headers["Authorization"] = `Bearer ${bearerToken}`; // Layer 2: User Session JWT
   }
-
+  console.log("URL API:", url);
   const res = await fetch(url, {
     ...options,
     headers: {
