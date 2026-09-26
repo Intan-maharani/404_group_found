@@ -88,15 +88,6 @@ export const initialItems = [
     image: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400",
     description: "Lampu penerangan portable rechargeable waterproof.",
   },
-  {
-    id: "s7",
-    name: "Carrier Bag 60 Liter",
-    category: "Satuan",
-    pricePerDay: 25000,
-    available: 8,
-    image: "https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&q=80&w=400",
-    description: "Tas gunung dengan air back system untuk kenyamanan ekstra.",
-  },
 ];
 
 export default function CatalogPage() {

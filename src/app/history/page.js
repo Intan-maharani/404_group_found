@@ -16,7 +16,6 @@ const statusMeta = {
 
 const defaultRiwayat = [];
 
-// Fungsi Normalisasi Status Lengkap (Mencakup Semua Istilah Server)
 function normalizeStatus(rawStatus = "") {
   const s = String(rawStatus).toLowerCase().trim();
   if (
@@ -45,14 +44,56 @@ export default function HistoryPage() {
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
   const [isLiveApi, setIsLiveApi] = useState(false);
+const [returning, setReturning] = useState(false);
+  const [isEarlyReturn, setIsEarlyReturn] = useState(true);
+  const [catatanReturn, setCatatanReturn] = useState("");
 
-  // Fetch data real-time dari backend /borrows
+  const handleReturnSubmit = async (e) => {
+    e.preventDefault();
+    if (!current) return;
+
+    setReturning(true);
+    const todayStr = new Date().toISOString().split("T")[0];
+
+    try {
+      const payload = {
+        status: "Returned",
+        tanggal_dikembalikan_aktual: todayStr,
+        catatan: isEarlyReturn 
+          ? `[Pengembalian Lebih Awal] ${catatanReturn || "Alat dikembalikan sebelum tanggal tenggat."}`
+          : catatanReturn || "Pengembalian sesuai jadwal.",
+      };
+
+      await apiFetch(`/borrows/${current.realId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
+      localOverrides[current.id] = "Returned";
+      localOverrides[current.realId] = "Returned";
+      localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
+
+      alert(isEarlyReturn ? "Berhasil mengajukan pengembalian lebih awal!" : "Pengembalian alat berhasil dikonfirmasi!");
+      setCatatanReturn("");
+      loadBorrows(true);
+    } catch (err) {
+      console.error("Gagal melakukan pengembalian:", err);
+      const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
+      localOverrides[current.id] = "Returned";
+      localOverrides[current.realId] = "Returned";
+      localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
+
+      alert("Pengembalian alat diproses secara lokal!");
+      setCatatanReturn("");
+      loadBorrows(true);
+    } finally {
+      setReturning(false);
+    }
+  };
   const loadBorrows = useCallback(async (isBackgroundFetch = false) => {
     if (!isBackgroundFetch) setLoading(true);
     try {
       const res = await apiFetch("/borrows");
-      
-      // Ambil override status lokal yang disimpan dari Admin jika ada
       let localOverrides = {};
       try {
         localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
@@ -100,7 +141,13 @@ if (normalized === "Approved") {
     }
   }
 }
-
+const katalogBarang = [
+  "Carrier Eiger 75L",
+  "Kompor Portebel",
+  "Sleeping Bag Polar",
+  "Tenda Camping 4P",
+  "Tiker Piknik"
+];
 return {
   realId,
   id: displayId,
@@ -180,15 +227,9 @@ return {
         </button>
       </div>
 
-      {isLiveApi && (
-        <div className="mb-5 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center justify-between">
-          <span className="font-medium">✅ Live Sync Real-time: Status terhubung otomatis dengan server backend & Admin.</span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 uppercase">Live API</span>
-        </div>
-      )}
-
+      
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
-        {/* Kolom Kiri: Daftar Riwayat Transaksi */}
+        {}
         <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.canvasDeep}` }}>
           <div className="px-5 py-3.5 flex items-center justify-between" style={{ backgroundColor: C.forestDeep, color: C.paper }}>
             <div className="flex items-center gap-2">
@@ -273,7 +314,7 @@ return {
           </div>
         </div>
 
-        {/* Kolom Kanan: Detail & Pelacakan Status Interaktif */}
+        {}
         <div
           className="rounded-2xl p-6"
           style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}
@@ -310,6 +351,87 @@ return {
                   </p>
                 </div>
               </div>
+              {current.status === "Borrowed"  && (
+                <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                      <RotateCcw size={14} /> Pengembalian Alat
+                    </p>
+                    <span className="text-[10px] bg-amber-200 text-amber-900 font-bold px-2 py-0.5 rounded-full">
+                      Bisa Kembalikan Awal
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-amber-800 mb-3 leading-relaxed">
+                    Masa sewa Anda s.d <strong>{current.tanggal.split("s.d")[1] || current.tanggal}</strong>. Jika pemakaian sudah selesai, Anda dapat mengembalikan barang sekarang tanpa menunggu tanggal tenggat.
+                  </p>
+
+<form onSubmit={handleReturnSubmit} className="space-y-3">
+  <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200">
+    <input
+      type="checkbox"
+      id="earlyCheck"
+      checked={isEarlyReturn}
+      onChange={(e) => setIsEarlyReturn(e.target.checked)}
+      className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+    />
+    <label htmlFor="earlyCheck" className="text-xs font-semibold text-stone-700 cursor-pointer">
+      ⚡ Kembalikan lebih awal hari ini ({new Date().toLocaleDateString("id-ID")})
+    </label>
+  </div>
+
+  <div>
+    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+      Catatan Kondisi Barang (Opsional):
+    </label>
+    <textarea
+      rows={2}
+      value={catatanReturn}
+      onChange={(e) => setCatatanReturn(e.target.value)}
+      placeholder="Contoh: Dikembalikan lebih cepat, semua alat dalam kondisi lengkap & bersih."
+      className="w-full p-2 text-xs rounded-lg border border-stone-300 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+    />
+  </div>
+  {(() => {
+    const endDateRaw = current.tanggal.split("s.d")[1]?.trim() || current.tanggal;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDateObj = new Date(String(endDateRaw).replace(/-/g, "/"));
+    endDateObj.setHours(0, 0, 0, 0);
+
+    
+    const isDueDate = !isNaN(endDateObj.getTime()) && today >= endDateObj;
+    
+    
+    const isDisabled = returning || (!isDueDate && !isEarlyReturn);
+
+    return (
+      <button
+        type="submit"
+        disabled={isDisabled}
+        className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
+          isDisabled
+            ? "bg-stone-300 text-stone-500 cursor-not-allowed opacity-70"
+            : "bg-amber-700 hover:bg-amber-800 text-white cursor-pointer shadow-xs"
+        }`}
+      >
+        <RotateCcw size={14} className={returning ? "animate-spin" : ""} />
+        <span>
+          {returning
+            ? "Memproses..."
+            : !isDueDate && !isEarlyReturn
+            ? "Belum Waktunya Pengembalian"
+            : isEarlyReturn
+            ? "Konfirmasi Kembalikan Sekarang (Lebih Awal)"
+            : "Konfirmasi Pengembalian Alat"}
+        </span>
+      </button>
+    );
+  })()}
+</form>
+                </div>
+              )}
             </>
           ) : (
             <div className="text-center py-6 text-gray-400 text-xs">
@@ -317,7 +439,6 @@ return {
             </div>
           )}
 
-          {/* TAHAPAN PELACAKAN INTERAKTIF */}
           <div className="flex justify-between items-center mb-3 pt-2">
             <p className="text-xs font-semibold uppercase tracking-wide" style={{ ...bodyFont, color: "#8A8272" }}>
               Tahapan Pelacakan
