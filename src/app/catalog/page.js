@@ -150,6 +150,21 @@ export default function CatalogPage() {
   const [endDate, setEndDate] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
 
+  // Cek peran user dari localStorage
+  const [isAdmin] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      const sessionUserStr = localStorage.getItem("session_user");
+      if (sessionUserStr) {
+        const userObj = JSON.parse(sessionUserStr);
+        return userObj.role === "admin";
+      }
+    } catch (err) {
+      console.error("Gagal membaca session_user:", err);
+    }
+    return false;
+  });
+
   // Dapatkan tanggal hari ini dalam format YYYY-MM-DD
   const getTodayString = () => {
     const today = new Date();
@@ -270,12 +285,18 @@ export default function CatalogPage() {
                           Rp {item.pricePerDay.toLocaleString("id-ID")}
                         </span>
                       </div>
-                      <button
-                        onClick={() => handleOpenBorrowModal(item)}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2 py-1.5 rounded-lg text-[11px] transition-colors shadow-sm shrink-0 whitespace-nowrap"
-                      >
-                        Pinjam Paket
-                      </button>
+                      {!isAdmin ? (
+                        <button
+                          onClick={() => handleOpenBorrowModal(item)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white font-semibold px-2 py-1.5 rounded-lg text-[11px] transition-colors shadow-sm shrink-0 whitespace-nowrap"
+                        >
+                          Pinjam Paket
+                        </button>
+                      ) : (
+                        <span className="text-[10px] bg-slate-100 text-slate-500 font-semibold px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
+                          Mode Admin
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -300,17 +321,16 @@ export default function CatalogPage() {
                 >
                   <div className="relative h-40 w-full overflow-hidden bg-slate-100 shrink-0">
                     <img
-                    src={item.image}
-                    alt={item.name}
-                    className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      src={item.image}
+                      alt={item.name}
+                      className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                      <span className="absolute top-3 left-3 bg-slate-800/80 text-white text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
-                        {item.category}
-                      </span>
-                        {/* ELEMEN STOK YANG DITAMBAHKAN */}
-                      <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200">
+                    <span className="absolute top-3 left-3 bg-slate-800/80 text-white text-xs font-semibold px-2.5 py-1 rounded-full backdrop-blur-sm">
+                      {item.category}
+                    </span>
+                    <span className="absolute top-3 right-3 bg-white/90 backdrop-blur-md text-slate-700 text-xs font-medium px-2.5 py-1 rounded-full border border-slate-200">
                       Stok: {item.available}
-                      </span>
+                    </span>
                   </div>
 
                   <div className="p-4 flex flex-col flex-1 justify-between">
@@ -330,12 +350,18 @@ export default function CatalogPage() {
                           Rp {item.pricePerDay.toLocaleString("id-ID")}
                         </span>
                       </div>
-                      <button
-                        onClick={() => handleOpenBorrowModal(item)}
-                        className="bg-slate-900 hover:bg-emerald-600 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs transition-colors active:scale-95 duration-150 shrink-0 whitespace-nowrap"
-                      >
-                        Pinjam
-                      </button>
+                      {!isAdmin ? (
+                        <button
+                          onClick={() => handleOpenBorrowModal(item)}
+                          className="bg-slate-900 hover:bg-emerald-600 text-white font-medium px-2.5 py-1.5 rounded-lg text-xs transition-colors active:scale-95 duration-150 shrink-0 whitespace-nowrap"
+                        >
+                          Pinjam
+                        </button>
+                      ) : (
+                        <span className="text-[10px] bg-slate-100 text-slate-500 font-semibold px-2.5 py-1 rounded-lg border border-slate-200 shrink-0">
+                          Mode Admin
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
