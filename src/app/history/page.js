@@ -1,4 +1,5 @@
 "use client";
+
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Clock3, CheckCircle2, XCircle, Backpack, RotateCcw, RefreshCw } from "lucide-react";
@@ -38,15 +39,33 @@ function normalizeStatus(rawStatus = "") {
   }
   return "Pending";
 }
+
 export default function HistoryPage() {
   const [riwayat, setRiwayat] = useState(defaultRiwayat);
   const [selectedId, setSelectedId] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
   const [loading, setLoading] = useState(false);
-  const [isLiveApi, setIsLiveApi] = useState(false);
-const [returning, setReturning] = useState(false);
+  const [returning, setReturning] = useState(false);
   const [isEarlyReturn, setIsEarlyReturn] = useState(true);
   const [catatanReturn, setCatatanReturn] = useState("");
+
+  const filteredRiwayat = riwayat.filter((item) => {
+    if (activeFilter === "ALL") return true;
+    return item.status === activeFilter;
+  });
+
+  const current =
+    riwayat.find((r) => r.id === selectedId) ||
+    filteredRiwayat[0] ||
+    riwayat[0] ||
+    null;
+
+  const meta = statusMeta[current?.status] || statusMeta.Pending;
+
+  const countStatus = (statusKey) => {
+    if (statusKey === "ALL") return riwayat.length;
+    return riwayat.filter((r) => r.status === statusKey).length;
+  };
 
   const handleReturnSubmit = async (e) => {
     e.preventDefault();
@@ -64,23 +83,24 @@ const [returning, setReturning] = useState(false);
           : catatanReturn || "Pengembalian sesuai jadwal.",
       };
 
-      await apiFetch(`/borrows/${current.realId}`, {
-        method: "PATCH",
+      await apiFetch(`/borrows_details/${current.realId}`, {
+        method: "PUT",
         body: JSON.stringify(payload),
       });
+
       const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
-      localOverrides[current.id] = "Returned";
-      localOverrides[current.realId] = "Returned";
+      if (current.id) localOverrides[current.id] = "Returned";
+      if (current.realId) localOverrides[current.realId] = "Returned";
       localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
 
       alert(isEarlyReturn ? "Berhasil mengajukan pengembalian lebih awal!" : "Pengembalian alat berhasil dikonfirmasi!");
       setCatatanReturn("");
       loadBorrows(true);
     } catch (err) {
-      console.error("Gagal melakukan pengembalian:", err);
+      console.warn("Gagal melakukan pengembalian ke API, diproses secara lokal:", err.message);
       const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
-      localOverrides[current.id] = "Returned";
-      localOverrides[current.realId] = "Returned";
+      if (current.id) localOverrides[current.id] = "Returned";
+      if (current.realId) localOverrides[current.realId] = "Returned";
       localStorage.setItem("admin_status_overrides", JSON.stringify(localOverrides));
 
       alert("Pengembalian alat diproses secara lokal!");
@@ -90,84 +110,106 @@ const [returning, setReturning] = useState(false);
       setReturning(false);
     }
   };
+
   const loadBorrows = useCallback(async (isBackgroundFetch = false) => {
     if (!isBackgroundFetch) setLoading(true);
-    try {
-      const res = await apiFetch("/borrows");
-      let localOverrides = {};
-      try {
-        localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
-      } catch {
-        localOverrides = {};
-      }
 
-      if (Array.isArray(res) && res.length > 0) {
-        const mapped = res.map((b, idx) => {
-          const displayId = `CT-${String(idx + 1).padStart(3, "0")}`;
-          const realId = b.id_borrow || b.id || displayId;
+    // 1. Ambil data transaksi simpanan lokal dari Katalog
+    let localList = [];
+    let localOverrides = {};
+    try {
+      localList = JSON.parse(localStorage.getItem("local_borrows_list") || "[]");
+      localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
+    } catch {
+      localList = [];
+      localOverrides = {};
+    }
+
+    try {
+      // 2. Ambil data dari API Backend
+      const res = await apiFetch("/borrows_details");
+      const rawApiList = Array.isArray(res) ? res : (res?.data || []);
+
+      // Gabungkan data dari API dan simpanan lokal
+      const combinedList = [...rawApiList, ...localList];
+
+      if (combinedList.length > 0) {
+        const mapped = combinedList.map((b, idx) => {
+          const displayId = b.id || `CT-${String(idx + 1).padStart(3, "0")}`;
+          const realId = b.id_borrow_detail || b.id_borrow || b.id || displayId;
           
           const startDate = b.tanggal_mulai_sewa || b.tanggal_pinjam || "Hari ini";
           const endDate = b.tanggal_selesai_sewa || b.tanggal_kembali || "Besok";
           const dayDiff = Math.max(1, Math.ceil(Math.abs(new Date(String(endDate).replace(/-/g, "/")) - new Date(String(startDate).replace(/-/g, "/"))) / 86400000) || 1);
-          const rawBiaya = Number(b.total_biaya || b.total_harga || b.total) || (dayDiff * (45000 + ((idx + 1) * 5000)));
+          const rawBiaya = Number(b.total_biaya || b.total_harga || b.total) || (dayDiff * 45000);
           const totalHarga = `Rp${rawBiaya.toLocaleString("id-ID")}`;
 
-  let statusRaw = localOverrides[displayId] || localOverrides[realId] || b.status_peminjaman || b.status;
+          let statusRaw = localOverrides[displayId] || localOverrides[realId] || b.status_peminjaman || b.status || "Pending";
+          const normalized = normalizeStatus(statusRaw);
 
-  const normalized = normalizeStatus(statusRaw);
+          if (normalized === "Approved") {
+            const rawStart = b.tanggal_mulai_sewa || b.tanggal_pinjam;
+            const rawEnd = b.tanggal_selesai_sewa || b.tanggal_kembali;
 
-if (normalized === "Approved") {
-  
-  const rawStart = b.tanggal_mulai_sewa || b.tanggal_pinjam;
-  const rawEnd = b.tanggal_selesai_sewa || b.tanggal_kembali;
+            if (rawStart && rawEnd) {
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
 
-  if (rawStart && rawEnd) {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+              const start = new Date(String(rawStart).replace(/-/g, "/"));
+              const end = new Date(String(rawEnd).replace(/-/g, "/"));
 
-    
-    const start = new Date(String(rawStart).replace(/-/g, "/"));
-    const end = new Date(String(rawEnd).replace(/-/g, "/"));
+              start.setHours(0, 0, 0, 0);
+              end.setHours(0, 0, 0, 0);
 
-    start.setHours(0, 0, 0, 0);
-    end.setHours(0, 0, 0, 0);
+              if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
+                if (today >= start && today <= end) {
+                  statusRaw = "Borrowed"; 
+                } else if (today > end) {
+                  statusRaw = "Returned"; 
+                }
+              }
+            }
+          }
 
-    if (!isNaN(start.getTime()) && !isNaN(end.getTime())) {
-      if (today >= start && today <= end) {
-        statusRaw = "Borrowed"; 
-      } else if (today > end) {
-        statusRaw = "Returned"; 
-      }
-    }
-  }
-}
-const katalogBarang = [
-  "Carrier Eiger 75L",
-  "Kompor Portebel",
-  "Sleeping Bag Polar",
-  "Tenda Camping 4P",
-  "Tiker Piknik"
-];
-return {
-  realId,
-  id: displayId,
-  alat: b.nama_item || b.alat || `Peminjaman Alat Camping (${displayId})`,
-  tanggal: `${startDate} s.d ${endDate}`,
-  status: normalizeStatus(statusRaw),
-  total: totalHarga,
-};
+          return {
+            realId,
+            id: displayId,
+            alat: b.nama_item || b.alat || `Peminjaman Alat Camping (${displayId})`,
+            tanggal: `${startDate} s.d ${endDate}`,
+            status: normalizeStatus(statusRaw),
+            total: totalHarga,
+          };
         });
 
         const sorted = mapped.reverse();
         setRiwayat(sorted);
         setSelectedId((prev) => prev || sorted[0]?.id || "");
-        setIsLiveApi(true);
       } else {
         setRiwayat([]);
       }
     } catch (err) {
-      console.warn("Backend /borrows gagal dijangkau:", err);
-      setRiwayat([]);
+      // Fallback jika API bermasalah: Tetap tampilkan data transaksi lokal dari Katalog
+      if (localList.length > 0) {
+        const mappedLocal = localList.map((b, idx) => {
+          const displayId = b.id || `CT-${String(idx + 1).padStart(3, "0")}`;
+          const startDate = b.tanggal_mulai_sewa || "Hari ini";
+          const endDate = b.tanggal_selesai_sewa || "Besok";
+          let statusRaw = localOverrides[displayId] || b.status || "Pending";
+
+          return {
+            realId: displayId,
+            id: displayId,
+            alat: b.nama_item || b.alat || "Peminjaman Alat",
+            tanggal: `${startDate} s.d ${endDate}`,
+            status: normalizeStatus(statusRaw),
+            total: `Rp${Number(b.total_biaya || 50000).toLocaleString("id-ID")}`,
+          };
+        });
+        setRiwayat(mappedLocal.reverse());
+        setSelectedId((prev) => prev || mappedLocal[0]?.id || "");
+      } else {
+        setRiwayat([]);
+      }
     } finally {
       if (!isBackgroundFetch) setLoading(false);
     }
@@ -189,23 +231,6 @@ return {
     };
   }, [loadBorrows]);
 
-  const filteredRiwayat = riwayat.filter((item) => {
-    if (activeFilter === "ALL") return true;
-    return item.status === activeFilter;
-  });
-
-  const current =
-    riwayat.find((r) => r.id === selectedId) ||
-    filteredRiwayat[0] ||
-    riwayat[0] ||
-    null;
-
-  const meta = statusMeta[current?.status] || statusMeta.Pending;
-
-  const countStatus = (statusKey) => {
-    if (statusKey === "ALL") return riwayat.length;
-    return riwayat.filter((r) => r.status === statusKey).length;
-  };
   return (
     <div>
       <div className="flex items-start justify-between gap-4 mb-5">
@@ -227,9 +252,8 @@ return {
         </button>
       </div>
 
-      
       <div className="grid lg:grid-cols-[1.3fr_1fr] gap-6 items-start">
-        {}
+        {/* Left Column */}
         <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.canvasDeep}` }}>
           <div className="px-5 py-3.5 flex items-center justify-between" style={{ backgroundColor: C.forestDeep, color: C.paper }}>
             <div className="flex items-center gap-2">
@@ -314,7 +338,7 @@ return {
           </div>
         </div>
 
-        {}
+        {/* Right Column */}
         <div
           className="rounded-2xl p-6"
           style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}
@@ -351,7 +375,8 @@ return {
                   </p>
                 </div>
               </div>
-              {current.status === "Borrowed"  && (
+
+              {current.status === "Borrowed" && (
                 <div className="mb-6 p-4 rounded-xl bg-amber-50 border border-amber-200">
                   <div className="flex items-center justify-between mb-1.5">
                     <p className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
@@ -366,70 +391,68 @@ return {
                     Masa sewa Anda s.d <strong>{current.tanggal.split("s.d")[1] || current.tanggal}</strong>. Jika pemakaian sudah selesai, Anda dapat mengembalikan barang sekarang tanpa menunggu tanggal tenggat.
                   </p>
 
-<form onSubmit={handleReturnSubmit} className="space-y-3">
-  <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200">
-    <input
-      type="checkbox"
-      id="earlyCheck"
-      checked={isEarlyReturn}
-      onChange={(e) => setIsEarlyReturn(e.target.checked)}
-      className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
-    />
-    <label htmlFor="earlyCheck" className="text-xs font-semibold text-stone-700 cursor-pointer">
-      ⚡ Kembalikan lebih awal hari ini ({new Date().toLocaleDateString("id-ID")})
-    </label>
-  </div>
+                  <form onSubmit={handleReturnSubmit} className="space-y-3">
+                    <div className="flex items-center gap-2 bg-white p-2 rounded-lg border border-amber-200">
+                      <input
+                        type="checkbox"
+                        id="earlyCheck"
+                        checked={isEarlyReturn}
+                        onChange={(e) => setIsEarlyReturn(e.target.checked)}
+                        className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                      />
+                      <label htmlFor="earlyCheck" className="text-xs font-semibold text-stone-700 cursor-pointer">
+                        ⚡ Kembalikan lebih awal hari ini ({new Date().toLocaleDateString("id-ID")})
+                      </label>
+                    </div>
 
-  <div>
-    <label className="block text-[11px] font-semibold text-stone-600 mb-1">
-      Catatan Kondisi Barang (Opsional):
-    </label>
-    <textarea
-      rows={2}
-      value={catatanReturn}
-      onChange={(e) => setCatatanReturn(e.target.value)}
-      placeholder="Contoh: Dikembalikan lebih cepat, semua alat dalam kondisi lengkap & bersih."
-      className="w-full p-2 text-xs rounded-lg border border-stone-300 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
-    />
-  </div>
-  {(() => {
-    const endDateRaw = current.tanggal.split("s.d")[1]?.trim() || current.tanggal;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+                    <div>
+                      <label className="block text-[11px] font-semibold text-stone-600 mb-1">
+                        Catatan Kondisi Barang (Opsional):
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={catatanReturn}
+                        onChange={(e) => setCatatanReturn(e.target.value)}
+                        placeholder="Contoh: Dikembalikan lebih cepat, semua alat dalam kondisi lengkap & bersih."
+                        className="w-full p-2 text-xs rounded-lg border border-stone-300 bg-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                      />
+                    </div>
 
-    const endDateObj = new Date(String(endDateRaw).replace(/-/g, "/"));
-    endDateObj.setHours(0, 0, 0, 0);
+                    {(() => {
+                      const endDateRaw = current.tanggal.split("s.d")[1]?.trim() || current.tanggal;
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
 
-    
-    const isDueDate = !isNaN(endDateObj.getTime()) && today >= endDateObj;
-    
-    
-    const isDisabled = returning || (!isDueDate && !isEarlyReturn);
+                      const endDateObj = new Date(String(endDateRaw).replace(/-/g, "/"));
+                      endDateObj.setHours(0, 0, 0, 0);
 
-    return (
-      <button
-        type="submit"
-        disabled={isDisabled}
-        className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
-          isDisabled
-            ? "bg-stone-300 text-stone-500 cursor-not-allowed opacity-70"
-            : "bg-amber-700 hover:bg-amber-800 text-white cursor-pointer shadow-xs"
-        }`}
-      >
-        <RotateCcw size={14} className={returning ? "animate-spin" : ""} />
-        <span>
-          {returning
-            ? "Memproses..."
-            : !isDueDate && !isEarlyReturn
-            ? "Belum Waktunya Pengembalian"
-            : isEarlyReturn
-            ? "Konfirmasi Kembalikan Sekarang (Lebih Awal)"
-            : "Konfirmasi Pengembalian Alat"}
-        </span>
-      </button>
-    );
-  })()}
-</form>
+                      const isDueDate = !isNaN(endDateObj.getTime()) && today >= endDateObj;
+                      const isDisabled = returning || (!isDueDate && !isEarlyReturn);
+
+                      return (
+                        <button
+                          type="submit"
+                          disabled={isDisabled}
+                          className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-1.5 ${
+                            isDisabled
+                              ? "bg-stone-300 text-stone-500 cursor-not-allowed opacity-70"
+                              : "bg-amber-700 hover:bg-amber-800 text-white cursor-pointer shadow-xs"
+                          }`}
+                        >
+                          <RotateCcw size={14} className={returning ? "animate-spin" : ""} />
+                          <span>
+                            {returning
+                              ? "Memproses..."
+                              : !isDueDate && !isEarlyReturn
+                              ? "Belum Waktunya Pengembalian"
+                              : isEarlyReturn
+                              ? "Konfirmasi Kembalikan Sekarang (Lebih Awal)"
+                              : "Konfirmasi Pengembalian Alat"}
+                          </span>
+                        </button>
+                      );
+                    })()}
+                  </form>
                 </div>
               )}
             </>
