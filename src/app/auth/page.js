@@ -2,214 +2,141 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Tent, LogIn, UserPlus, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
-import { C, headingFont, bodyFont } from "../../lib/tokens";
-import { SectionEyebrow, Field } from "../../components/Shared";
-import { apiFetch } from "../../lib/api";
 
 export default function AuthPage() {
-  const router = useRouter();
-  const [mode, setMode] = useState("login");
-  const [loading, setLoading] = useState(false);
+  const [isLogin, setIsLogin] = useState(true);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
-  const [successMsg, setSuccessMsg] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
-  const [form, setForm] = useState({
-    nama: "",
-    email: "",
-    no_telepon: "",
-    password: "",
-  });
-
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setErrorMsg("");
-  };
-
-  const handleSubmit = async (e) => {
+  const handleAuth = (e) => {
     e.preventDefault();
-    setLoading(true);
     setErrorMsg("");
-    setSuccessMsg("");
+    setIsLoading(true);
 
-    try {
-      if (mode === "register") {
-        const res = await apiFetch("/register", {
-          method: "POST",
-          body: JSON.stringify({
-            nama: form.nama,
-            email: form.email,
-            no_telepon: form.no_telepon || "08123456789",
-            password: form.password,
-            role: "user",
-          }),
-        });
-
-        setSuccessMsg("Pendaftaran akun berhasil! Silakan masuk.");
-        setMode("login");
-      } else {
-        const res = await apiFetch("/login", {
-          method: "POST",
-          body: JSON.stringify({
-            email: form.email,
-            password: form.password,
-          }),
-        });
-
-        if (res.token) {
-          localStorage.setItem("session_token", res.token);
-          if (res.user) {
-            localStorage.setItem("session_user", JSON.stringify(res.user));
-          }
+    setTimeout(() => {
+      if (isLogin) {
+        // Validasi input sederhana
+        if (!email || !password) {
+          setErrorMsg("Email dan kata sandi wajib diisi!");
+          setIsLoading(false);
+          return;
         }
 
-        setSuccessMsg("Login berhasil! Mengalihkan ke Katalog...");
-        setTimeout(() => {
-          router.push("/catalog");
-        }, 800);
+        // Cek jika yang masuk adalah Admin
+        if (email.toLowerCase().includes("admin") || email === "admin@gmail.com") {
+          localStorage.setItem("userRole", "admin");
+          localStorage.setItem("userEmail", email);
+        } else {
+          // Jika pengguna biasa (User)
+          localStorage.setItem("userRole", "user");
+          localStorage.setItem("userEmail", email);
+        }
+
+        // Berhasil login -> Arahkan langsung ke halaman Katalog Peminjaman
+        router.push("/catalog");
+      } else {
+        alert("Pendaftaran akun berhasil, silakan masuk!");
+        setIsLogin(true);
+        setIsLoading(false);
       }
-    } catch (err) {
-      setErrorMsg(err.message || "Terjadi kesalahan, silakan coba lagi.");
-    } finally {
-      setLoading(false);
-    }
+    }, 500);
   };
 
   return (
-    <div>
-      <SectionEyebrow
-        index={1}
-        total={4}
-        title="Selamat Datang di Chill Time"
-        desc="Silakan masuk untuk mengakses akun dan menggunakan layanan Chill Time."
-      />
-      <div className="grid md:grid-cols-[1fr_1.1fr] gap-8 items-start">
-        <div className="rounded-2xl p-8" style={{ backgroundColor: C.forestDeep, color: C.paper }}>
-          <Tent size={32} style={{ color: C.amber }} />
-          <p className="mt-6 text-2xl leading-snug" style={{ ...headingFont }}>
-            Alat lengkap,<br />tinggal berangkat.
-          </p>
-          <p className="mt-4 text-sm leading-relaxed opacity-80" style={{ ...bodyFont }}>
-            Sewa coolbox, tikar, kompor portable, tenda, dan lampu camping
-            dalam hitungan menit. Kembalikan setelah petualangan selesai.
-          </p>
+    <div className="min-h-screen bg-[#f4f1ea] flex items-center justify-center p-6 text-[#1b2b22]">
+      <div className="bg-white rounded-3xl p-8 max-w-4xl w-full shadow-sm border border-slate-200/60 grid grid-cols-1 md:grid-cols-2 gap-8">
+        
+        {/* Banner Kiri */}
+        <div className="bg-[#132a20] text-white p-8 rounded-2xl flex flex-col justify-between">
+          <div>
+            <div className="text-amber-400 text-3xl mb-4">⛺</div>
+            <h2 className="text-2xl font-bold mb-3">Alat lengkap, tinggal berangkat.</h2>
+            <p className="text-slate-300 text-sm leading-relaxed">
+              Sewa coolbox, tikar, kompor portable, tenda, dan lampu camping dalam hitungan menit. Kembalikan setelah petualangan selesai.
+            </p>
+          </div>
         </div>
 
-        <div className="rounded-2xl p-7" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
-          <div className="flex rounded-full p-1 mb-6" style={{ backgroundColor: C.canvas }}>
-            {[
-              { key: "login", label: "Masuk", icon: LogIn },
-              { key: "register", label: "Daftar", icon: UserPlus },
-            ].map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  setMode(key);
-                  setErrorMsg("");
-                  setSuccessMsg("");
-                }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-full text-sm font-semibold transition-colors cursor-pointer"
-                style={{
-                  ...bodyFont,
-                  backgroundColor: mode === key ? C.forest : "transparent",
-                  color: mode === key ? C.paper : C.ink,
-                }}
-              >
-                <Icon size={15} />
-                {label}
-              </button>
-            ))}
+        {/* Form Kanan */}
+        <div className="flex flex-col justify-center">
+          <div className="flex bg-[#e8e4d9] p-1 rounded-full mb-6">
+            <button
+              type="button"
+              onClick={() => { setIsLogin(true); setErrorMsg(""); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-full transition-all ${
+                isLogin ? "bg-[#132a20] text-white shadow" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              ➔ Masuk
+            </button>
+            <button
+              type="button"
+              onClick={() => { setIsLogin(false); setErrorMsg(""); }}
+              className={`flex-1 py-2 text-sm font-semibold rounded-full transition-all ${
+                !isLogin ? "bg-[#132a20] text-white shadow" : "text-slate-600 hover:text-slate-900"
+              }`}
+            >
+              👤+ Daftar
+            </button>
           </div>
 
+          {/* Pesan Error */}
           {errorMsg && (
-            <div className="mb-4 p-3 rounded-xl flex items-center gap-2 text-xs font-semibold bg-red-50 text-red-700 border border-red-200">
-              <AlertCircle size={15} className="flex-shrink-0" />
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-xl text-xs flex items-center gap-2">
+              <span>⚠️</span>
               <span>{errorMsg}</span>
             </div>
           )}
 
-          {successMsg && (
-            <div className="mb-4 p-3 rounded-xl flex items-center gap-2 text-xs font-semibold bg-green-50 text-green-700 border border-green-200">
-              <CheckCircle2 size={15} className="flex-shrink-0" />
-              <span>{successMsg}</span>
+          <form onSubmit={handleAuth} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@gmail.com"
+                className="w-full bg-[#eef2fc] border-none rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#132a20]/20 text-slate-800"
+              />
             </div>
-          )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {mode === "register" && (
-              <>
-                <Field
-                  label="Nama lengkap"
-                  name="nama"
-                  value={form.nama}
-                  onChange={handleChange}
-                  placeholder="Nama lengkap kamu"
-                  required
-                />
-                <Field
-                  label="No. Telepon / WhatsApp"
-                  name="no_telepon"
-                  value={form.no_telepon}
-                  onChange={handleChange}
-                  placeholder="08123456789"
-                  required
-                />
-              </>
-            )}
-
-            <Field
-              label="Email"
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-              placeholder="nama@email.com"
-              required
-            />
-
-            <Field
-              label="Kata sandi"
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder="••••••••"
-              required
-            />
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Kata sandi</label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                className="w-full bg-[#eef2fc] border-none rounded-xl p-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#132a20]/20 text-slate-800"
+              />
+            </div>
 
             <button
               type="submit"
-              disabled={loading}
-              className="w-full mt-6 py-3 rounded-full font-semibold text-sm flex items-center justify-center gap-2 cursor-pointer transition-opacity"
-              style={{
-                ...bodyFont,
-                backgroundColor: C.amber,
-                color: C.forestDeep,
-                opacity: loading ? 0.7 : 1,
-              }}
+              disabled={isLoading}
+              className="w-full bg-[#e29d38] hover:bg-[#d18c27] text-white font-bold py-3 rounded-xl text-sm transition-colors shadow-sm disabled:opacity-50"
             >
-              {loading && <Loader2 size={16} className="animate-spin" />}
-              {mode === "login" ? "Masuk sekarang" : "Buat akun"}
+              {isLoading ? "Memproses..." : isLogin ? "Masuk sekarang" : "Daftar Akun"}
             </button>
           </form>
 
-          <p className="text-center text-xs mt-4" style={{ ...bodyFont, color: "#8A8272" }}>
-            {mode === "login" ? "Belum punya akun? " : "Sudah punya akun? "}
+          <p className="text-center text-xs text-slate-500 mt-4">
+            {isLogin ? "Belum punya akun? " : "Sudah punya akun? "}
             <button
               type="button"
-              onClick={() => {
-                setMode(mode === "login" ? "register" : "login");
-                setErrorMsg("");
-                setSuccessMsg("");
-              }}
-              className="font-semibold underline cursor-pointer"
-              style={{ color: C.forest }}
+              onClick={() => { setIsLogin(!isLogin); setErrorMsg(""); }}
+              className="text-slate-800 font-semibold underline"
             >
-              {mode === "login" ? "Daftar di sini" : "Masuk di sini"}
+              {isLogin ? "Daftar di sini" : "Masuk di sini"}
             </button>
           </p>
         </div>
+
       </div>
     </div>
   );
