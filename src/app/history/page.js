@@ -54,18 +54,7 @@ export default function HistoryPage() {
 
       const localOverrides = JSON.parse(localStorage.getItem("admin_status_overrides") || "{}");
       const localNames = JSON.parse(localStorage.getItem("borrow_item_names") || "{}");
-      let currentUser = null;
-      try {
-        const storedUser = localStorage.getItem("session_user");
-        if (storedUser) {
-          currentUser = JSON.parse(storedUser);
-        }
-      } catch (e) {}
-      const isAdmin = currentUser && (
-        currentUser.role === "admin" || 
-        currentUser.email === "admin@chilltime.com" || 
-        String(currentUser.name || "").toLowerCase().includes("admin")
-      );
+
       const mapped = apiList.map((b, idx) => {
         // Menyesuaikan dengan kolom database Anda: id_peminjaman
         const displayId = b.id_peminjaman || b.uuid || b.id || `CT-${String(idx + 1).padStart(3, "0")}`;
@@ -84,7 +73,6 @@ export default function HistoryPage() {
 
         return {
           id: displayId,
-          userId: b.id_user || b.user_id,
           alat: namaBarang,
           peminjam: namaUser,
           tanggal: `${startDate} s.d ${endDate}`,
@@ -93,12 +81,7 @@ export default function HistoryPage() {
           total: `Rp${rawBiaya.toLocaleString("id-ID")}`,
         };
       });
-      const filteredByUser = isAdmin 
-        ? mapped 
-        : mapped.filter(item => {
-            if (!currentUser) return true; 
-            return item.userId === currentUser.id || item.userId === currentUser.uuid || item.peminjam.toLowerCase() === String(currentUser.name || "").toLowerCase();
-          });
+
       // Urutkan dari data terbaru di database
       const finalResult = mapped.reverse();
       setRiwayat(finalResult);
