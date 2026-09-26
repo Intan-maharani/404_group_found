@@ -10,7 +10,7 @@ const FEATURES = [
   { href: "/auth", label: "Autentikasi", icon: LogIn },
   { href: "/catalog", label: "Katalog Peminjaman", icon: PackageSearch },
   { href: "/history", label: "Riwayat & Status", icon: ClipboardList },
-  { href: "/admin", label: "Approval Admin", icon: LayoutGrid },
+  { href: "/admin", label: "Approval Admin", icon: LayoutGrid, adminOnly: true }, // Tambahkan penanda adminOnly
 ];
 
 export default function Nav() {
@@ -61,6 +61,11 @@ export default function Nav() {
     <div className="flex flex-col gap-4">
       <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible pb-2 md:pb-0">
         {FEATURES.map((f) => {
+          // Jika menu khusus admin dan user yang login bukan admin, jangan tampilkan menu ini
+          if (f.adminOnly && !isAdmin) {
+            return null;
+          }
+
           const active = pathname === f.href;
           const isApprovalAdmin = f.href === "/admin";
           return (
