@@ -17,62 +17,135 @@ import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow } from "../../components/Shared";
 import { apiFetch } from "../../lib/api";
 
-const initialQueue = [
-  { id: "CT-2026-091", user: "Intan mmm.", alat: "Tenda Dome 4P", tanggal: "12–14 Sep", status: "menunggu" },
-  { id: "CT-2026-093", user: "Widya A.", alat: "Coolbox 30L x2", tanggal: "13–15 Sep", status: "menunggu" },
-  { id: "CT-2026-094", user: "Putri A.", alat: "Set Alat Masak", tanggal: "14–16 Sep", status: "menunggu" },
-  { id: "CT-2026-095", user: "Anisa M.", alat: "Coolbox 30L x2", tanggal: "15–16 Sep", status: "menunggu" },
-];
 export default function AdminPage() {
-  const [queue, setQueue] = useState(initialQueue);
+  const [queue, setQueue] = useState([]);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(null);
   const [bannerMsg, setBannerMsg] = useState("");
   const [returnConfirmed, setReturnConfirmed] = useState(false);
+  const [selectedQueue, setSelectedQueue] = useState(null);
 
   // Statistik
   const [stats, setStats] = useState({
-    dipinjam: 4,
-    menunggu: 4,
-    totalPenyewa: 404,
+    dipinjam: 0,
+    menunggu: 0,
+    totalPenyewa: 0,
   });
 
-  const loadAdminData = async () => {
-    setLoading(true);
-    try {
-      const borrows = await apiFetch("/borrows");
-      if (Array.isArray(borrows) && borrows.length > 0) {
-        const pending = borrows.filter(
-          (b) => String(b.status).toLowerCase().includes("tunggu") || b.status === "pending" || b.status === "menunggu"
-        );
+const loadAdminData = async () => {
+  setLoading(true);
 
-        const activeBorrowed = borrows.filter(
-          (b) => String(b.status).toLowerCase().includes("pinjam") || b.status === "dipinjam"
-        );
+  try {
+    // Ambil semua data yang diperlukan dari API
+    const [borrows, borrowDetails, items, users] = await Promise.all([
+      apiFetch("/borrows"),
+      apiFetch("/borrows_details"),
+      apiFetch("/items"),
+      apiFetch("/users"),
+    ]);
 
-        setStats({
-          dipinjam: activeBorrowed.length || 2,
-          menunggu: pending.length,
-          totalPenyewa: Math.max(404, borrows.length * 15),
-        });
+    // =========================
+    // 1. FILTER PEMINJAMAN PENDING
+    // =========================
+    const pending = Array.isArray(borrows)
+      ? borrows.filter(
+          (b) => b.status_peminjaman === "pending"
+        )
+      : [];
 
-        if (pending.length > 0) {
-          const mappedPending = pending.map((b, idx) => ({
-            id: b.id_borrow || b.id || `CT-AP-${idx + 1}`,
-            user: b.id_user ? `Penyewa (${b.id_user.slice(0, 8)})` : "Penyewa ChillTime",
-            alat: b.nama_item || b.alat || `Peminjaman Alat (${b.id_borrow || idx + 1})`,
-            tanggal: `${b.tanggal_pinjam || "12 Sep"} – ${b.tanggal_kembali || "14 Sep"}`,
-            status: "menunggu",
-          }));
-          setQueue(mappedPending);
-        }
-      }
-    } catch (err) {
-      console.warn("Menggunakan antrean bawaan karena API borrows kosong/perlu otorisasi:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // =========================
+    // 2. PEMINJAMAN YANG SEDANG DIPINJAM
+    // =========================
+    const activeBorrowed = Array.isArray(borrows)
+      ? borrows.filter(
+          (b) => b.status_peminjaman === "borrowed"
+        )
+      : [];
+
+    // =========================
+    // 3. BUAT DATA ANTREAN
+    // =========================
+    const mappedPending = pending.map((b) => {
+      // Cari semua detail barang untuk peminjaman ini
+      const details = Array.isArray(borrowDetails)
+        ? borrowDetails.filter(
+            (d) => d.id_peminjaman === b.id_peminjaman
+          )
+        : [];
+
+      // Cari nama barang
+      const namaAlat = details
+        .map((detail) => {
+          const item = Array.isArray(items)
+            ? items.find(
+                (i) => i.id_item === detail.id_item
+              )
+            : null;
+
+          if (item) {
+            return detail.jumlah_pinjam > 1
+              ? `${item.nama_item} x${detail.jumlah_pinjam}`
+              : item.nama_item;
+          }
+
+          return null;
+        })
+        .filter(Boolean)
+        .join(", ");
+
+      // Cari data user berdasarkan id_user
+      const user = Array.isArray(users)
+        ? users.find(
+            (u) => u.id_user === b.id_user
+          )
+        : null;
+
+      return {
+      id: b.id_peminjaman,
+
+      user: user?.nama_lengkap || "Nama tidak tersedia",
+
+      email: user?.email || "Email tidak tersedia",
+
+      phone: "Nomor HP tidak tersedia",
+
+      alat: namaAlat || "Barang tidak tersedia",
+
+      jumlah: details.reduce(
+        (total, detail) =>
+          total + Number(detail.jumlah_pinjam || 0),
+        0
+      ),
+
+      tanggal: `${b.tanggal_mulai_sewa} – ${b.tanggal_selesai_sewa}`,
+
+      totalBiaya: b.total_biaya || 0,
+
+      status: b.status_peminjaman,
+    };
+    });
+
+    // Masukkan data asli ke antrean
+    setQueue(mappedPending);
+
+    // =========================
+    // 4. UPDATE STATISTIK
+    // =========================
+    setStats({
+      dipinjam: activeBorrowed.length,
+      menunggu: pending.length,
+      totalPenyewa: Array.isArray(users)
+        ? users.length
+        : 0,
+    });
+
+  } catch (err) {
+    console.error("Gagal mengambil data admin:", err);
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     loadAdminData();
@@ -82,52 +155,43 @@ export default function AdminPage() {
     setActionLoading(id);
     setBannerMsg("");
 
-    let staffId = "staff-01";
     try {
-      const savedUser = localStorage.getItem("session_user");
-      if (savedUser) {
-        const u = JSON.parse(savedUser);
-        staffId = u.id || u.id_user || staffId;
-      }
-    } catch {
-      // Abaikan jika tidak ada user
-    }
-
-    try {
-      // 1. Simpan approval ke backend
-      await apiFetch("/approvals", {
-        method: "POST",
+      await apiFetch(`/borrows/${id}`, {
+        method: "PUT",
         body: JSON.stringify({
-          id_borrow: id,
-          id_staff: staffId,
-          status: status,
-          catatan: `Status diubah menjadi ${status} melalui panel Admin`,
+          status_peminjaman: status,
+          alasan_penolakan:
+            status === "rejected"
+              ? "Pengajuan ditolak oleh admin"
+              : "",
         }),
       });
 
-      // 2. Coba update status borrow jika didukung
-      try {
-        await apiFetch(`/borrows/${id}`, {
-          method: "PUT",
-          body: JSON.stringify({ status: status === "approved" ? "disetujui" : "ditolak" }),
-        });
-      } catch {
-        // Toleransi
-      }
+      setQueue((prev) =>
+        prev.filter((item) => item.id !== id)
+      );
 
-      setQueue((prev) => prev.filter((item) => item.id !== id));
-      setStats((prev) => ({ ...prev, menunggu: Math.max(0, prev.menunggu - 1) }));
-      setBannerMsg(`Peminjaman ID: ${id} berhasil di-${status === "approved" ? "setujui" : "tolak"}!`);
+      setStats((prev) => ({
+        ...prev,
+        menunggu: Math.max(0, prev.menunggu - 1),
+      }));
+
+      setBannerMsg(
+        `Peminjaman ID: ${id} berhasil di-${
+          status === "approved" ? "setujui" : "tolak"
+        }!`
+      );
+
     } catch (err) {
-      // Tetap beri respons optimistik di UI jika backend tabel approvals belum dibuat
-      setQueue((prev) => prev.filter((item) => item.id !== id));
-      setStats((prev) => ({ ...prev, menunggu: Math.max(0, prev.menunggu - 1) }));
-      setBannerMsg(`Peminjaman ID: ${id} berhasil di-${status === "approved" ? "setujui" : "tolak"} (mode lokal).`);
+      console.error("Gagal mengubah status peminjaman:", err);
+
+      setBannerMsg(
+        `Gagal mengubah status peminjaman ID: ${id}.`
+      );
     } finally {
       setActionLoading(null);
     }
   };
-
   return (
     <div>
       <div className="flex items-start justify-between gap-4">
@@ -201,11 +265,12 @@ export default function AdminPage() {
             <div className="divide-y divide-stone-100 bg-white">
               {queue.map((q) => (
                 <div
-                  key={q.id}
-                  className="flex items-center justify-between px-5 py-4 hover:bg-stone-50 transition-colors"
-                >
+              key={q.id}
+              onClick={() => setSelectedQueue(q)}
+              className="flex items-center justify-between px-5 py-4 hover:bg-stone-50 transition-colors cursor-pointer"
+              >
                   <div className="pr-3">
-                    <p className="text-sm font-semibold" style={{ ...headingFont, color: C.ink }}>
+                    <p className="text-sm font-semibold hover:underline" style={{ ...headingFont, color: C.ink }}>
                       {q.alat}
                     </p>
                     <p className="text-xs mt-0.5" style={{ ...bodyFont, color: "#8A8272" }}>
@@ -216,7 +281,10 @@ export default function AdminPage() {
                     <button
                       type="button"
                       disabled={actionLoading === q.id}
-                      onClick={() => handleDecision(q.id, "approved")}
+                      onClick={(e) => {
+                      e.stopPropagation();
+                      handleDecision(q.id, "approved");
+                      }}
                       title="Setujui Peminjaman"
                       className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
                       style={{ backgroundColor: `${C.moss}1A` }}
@@ -230,7 +298,8 @@ export default function AdminPage() {
                     <button
                       type="button"
                       disabled={actionLoading === q.id}
-                      onClick={() => handleDecision(q.id, "rejected")}
+                      onClick={(e) => {e.stopPropagation();
+                      handleDecision(q.id, "rejected");}}
                       title="Tolak Peminjaman"
                       className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-transform hover:scale-105"
                       style={{ backgroundColor: `${C.rust}1A` }}
@@ -250,6 +319,7 @@ export default function AdminPage() {
 
         {/* Verifikasi Pengembalian */}
         <div className="rounded-2xl p-6" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
+
           <div className="flex items-center gap-2 mb-4">
             <ShieldCheck size={16} style={{ color: C.moss }} />
             <p className="text-sm font-bold" style={{ ...headingFont, color: C.forestDeep }}>
@@ -293,6 +363,118 @@ export default function AdminPage() {
           </button>
         </div>
       </div>
+      {/* POPUP DETAIL PENYEWA */}
+      {selectedQueue && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div
+            className="w-full max-w-md rounded-2xl p-6"
+            style={{
+              backgroundColor: C.paper,
+              border: `1px solid ${C.canvasDeep}`,
+            }}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p
+                  className="text-lg font-bold"
+                  style={{ ...headingFont, color: C.forestDeep }}
+                >
+                  Detail Peminjaman
+                </p>
+
+                <p
+                  className="text-xs mt-1"
+                  style={{ ...bodyFont, color: "#8A8272" }}
+                >
+                  {selectedQueue.id}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedQueue(null)}
+                className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-stone-100"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-stone-500">Nama Penyewa</p>
+                <p className="text-sm font-semibold">
+                  {selectedQueue.user}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold">
+                {selectedQueue.phone}
+              </p>
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold">
+               {selectedQueue.email}
+              </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-stone-500">Alat</p>
+                <p className="text-sm font-semibold">
+                  {selectedQueue.alat}
+                </p>
+              </div>
+
+              <div>
+                 <p className="text-xs text-stone-500">Jumlah</p>
+                <p className="text-sm font-semibold">
+                  {selectedQueue.jumlah}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-stone-500">
+                  Tanggal Peminjaman
+                </p>
+                <p className="text-sm font-semibold">
+                  {selectedQueue.tanggal}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-stone-500">
+                  Total Biaya
+                </p>
+
+                <p className="text-sm font-semibold">
+                  Rp{" "}
+                  {Number(selectedQueue.totalBiaya).toLocaleString("id-ID")}
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs text-stone-500">Status</p>
+                <p className="text-sm font-semibold text-amber-600">
+                  Menunggu Persetujuan
+                </p>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setSelectedQueue(null)}
+              className="w-full mt-6 py-2.5 rounded-full font-semibold text-sm"
+              style={{
+                backgroundColor: C.forest,
+                color: C.paper,
+              }}
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

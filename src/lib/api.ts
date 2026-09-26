@@ -1,4 +1,4 @@
-const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "https://hmif.if.unram.ac.id/api/v2";
+const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || " https://hmif.if.unram.ac.id/api/v3/docs/";
 const PROJECT = process.env.NEXT_PUBLIC_PROJECT_ID || "chilltime";
 const API_KEY = process.env.NEXT_PUBLIC_API_KEY || "pk_chilltime_5d3aecbbf3a38e1f";
 
