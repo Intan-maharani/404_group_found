@@ -18,7 +18,7 @@ import { SectionEyebrow } from "../../components/Shared";
 import { apiFetch } from "../../lib/api";
 
 const initialQueue = [
-  { id: "CT-2026-091", user: "Intan M.", alat: "Tenda Dome 4P", tanggal: "12–14 Sep", status: "menunggu" },
+  { id: "CT-2026-091", user: "Intan mmm.", alat: "Tenda Dome 4P", tanggal: "12–14 Sep", status: "menunggu" },
   { id: "CT-2026-093", user: "Widya A.", alat: "Coolbox 30L x2", tanggal: "13–15 Sep", status: "menunggu" },
   { id: "CT-2026-094", user: "Putri A.", alat: "Set Alat Masak", tanggal: "14–16 Sep", status: "menunggu" },
   { id: "CT-2026-095", user: "Anisa M.", alat: "Coolbox 30L x2", tanggal: "15–16 Sep", status: "menunggu" },
