@@ -53,12 +53,49 @@ const initialPaket = [
     save: "Hemat 22%",
   },
   {
+<<<<<<< HEAD
     id_package: "pkg-grill",
     name: "Paket Grill Party",
     items: ["Kompor Portable", "Set Alat Masak", "Coolbox 30L", "Meja Lipat"],
     price: "Rp62.000/hari",
     rawPrice: 62000,
     save: "Hemat 15%",
+=======
+    id: "s3",
+    name: "Kompor Camping Portable",
+    category: "Satuan",
+    pricePerDay: 12000,
+    available: 15,
+    image: "https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&q=80&w=400",
+    description: "Kompor Mawar Windproof berukuran praktis.",
+  },
+  {
+    id: "s4",
+    name: "Nesting Cooking Set (DS-308)",
+    category: "Satuan",
+    pricePerDay: 15000,
+    available: 12,
+    image: "https://images.unsplash.com/photo-1526772662000-3f88f10405ff?auto=format&fit=crop&q=80&w=400",
+    description: "Panci dan teko aluminium ringan 3-in-1.",
+  },
+  {
+    id: "s5",
+    name: "Kursi Lipat Outdoor Portable",
+    category: "Satuan",
+    pricePerDay: 10000,
+    available: 25,
+    image: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400",
+    description: "Kursi lipat yang mampu menahan beban hingga 100kg.",
+  },
+  {
+    id: "s6",
+    name: "Lampu Lentera LED",
+    category: "Satuan",
+    pricePerDay: 8000,
+    available: 18,
+    image: "https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?auto=format&fit=crop&q=80&w=400",
+    description: "Lampu penerangan portable rechargeable waterproof.",
+>>>>>>> 99a1b58ea1e7aeab52ecd8ff22687b2d2bc56ac4
   },
 ];
 
