@@ -24,6 +24,9 @@ export default function AdminPage() {
   const [bannerMsg, setBannerMsg] = useState("");
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [returnQueue, setReturnQueue] = useState([]);
+  const [statModal, setStatModal] = useState(null); // "dipinjam" | "menunggu" | "totalPenyewa" | null
+  const [usersList, setUsersList] = useState([]);
+  
 
   // Statistik
   const [stats, setStats] = useState({
@@ -56,10 +59,8 @@ const loadAdminData = async () => {
     // 2. PEMINJAMAN YANG SEDANG DIPINJAM
     // =========================
     const activeBorrowed = Array.isArray(borrows)
-      ? borrows.filter(
-          (b) => b.status_peminjaman === "borrowed"
-        )
-      : [];
+  ? borrows.filter((b) => b.status_peminjaman === "approved" || b.status_peminjaman === "borrowed")
+  : [];
 
     // =========================
     // 3. BUAT DATA ANTREAN
@@ -106,7 +107,7 @@ const mappedBorrowed = activeBorrowed.map(mapBorrowToDisplay);
 
 setQueue(mappedPending);
 setReturnQueue(mappedBorrowed);
-
+setUsersList(Array.isArray(users) ? users : []);
     // =========================
     // 4. UPDATE STATISTIK
     // =========================
@@ -150,20 +151,14 @@ setReturnQueue(mappedBorrowed);
   }),
 });
     
-      setQueue((prev) =>
-        prev.filter((item) => item.id !== id)
-      );
+   setBannerMsg(
+  `Peminjaman ID: ${id} berhasil di-${
+    status === "approved" ? "setujui" : "tolak"
+  }!`
+);
 
-      setStats((prev) => ({
-        ...prev,
-        menunggu: Math.max(0, prev.menunggu - 1),
-      }));
-
-      setBannerMsg(
-        `Peminjaman ID: ${id} berhasil di-${
-          status === "approved" ? "setujui" : "tolak"
-        }!`
-      );
+// Refresh semua data dari server biar semua card & antrean sinkron
+await loadAdminData();
 
     } catch (err) {
       console.error("Gagal mengubah status peminjaman:", err);
@@ -179,7 +174,7 @@ setReturnQueue(mappedBorrowed);
        setActionLoading(id);
        setBannerMsg("");
   try {
-        await apiFetch('/borrows/${id}', {
+       await apiFetch(`/borrows/${id}`, {
         method: "POST",
         headers: {
         "X-HTTP-Method-Override": "PUT",
@@ -230,23 +225,30 @@ setReturnQueue(mappedBorrowed);
         </div>
       )}
 
-      <div className="grid sm:grid-cols-3 gap-4 mb-6">
-        {[
-          { label: "Alat sedang dipinjam", value: String(stats.dipinjam), icon: Backpack, tone: C.sky },
-          { label: "Persetujuan tertunda", value: String(stats.menunggu), icon: Clock3, tone: C.amberDeep },
-          { label: "Total penyewa aktif", value: String(stats.totalPenyewa), icon: Users, tone: C.moss },
-        ].map((s) => (
-          <div key={s.label} className="rounded-2xl p-5" style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}>
-            <s.icon size={18} style={{ color: s.tone }} />
-            <p className="text-2xl font-bold mt-3" style={{ ...headingFont, color: C.forestDeep }}>
-              {s.value}
-            </p>
-            <p className="text-xs mt-1" style={{ ...bodyFont, color: "#8A8272" }}>
-              {s.label}
-            </p>
-          </div>
-        ))}
-      </div>
+    <div className="grid sm:grid-cols-3 gap-4 mb-6">
+      {[
+        { key: "dipinjam", label: "Alat sedang dipinjam", value: String(stats.dipinjam), icon: Backpack, tone: C.sky },
+        { key: "menunggu", label: "Persetujuan tertunda", value: String(stats.menunggu), icon: Clock3, tone: C.amberDeep },
+        { key: "totalPenyewa", label: "Total penyewa aktif", value: String(stats.totalPenyewa), icon: Users, tone: C.moss },
+      ].map((s) => (
+        <div
+          key={s.label}
+          onClick={() => setStatModal(s.key)}
+          className="rounded-2xl p-5 cursor-pointer hover:shadow-md transition-shadow"
+          style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}
+        >
+          <s.icon size={18} style={{ color: s.tone }} />
+          <p className="text-2xl font-bold mt-3" style={{ ...headingFont, color: C.forestDeep }}>
+            {s.value}
+          </p>
+          <p className="text-xs mt-1" style={{ ...bodyFont, color: "#8A8272" }}>
+            {s.label}
+          </p>
+        </div>
+      ))}
+    </div>
+
+    
 
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
         {/* Antrean Approval */}
@@ -478,6 +480,83 @@ setReturnQueue(mappedBorrowed);
           </div>
         </div>
       )}
+      {statModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div
+      className="w-full max-w-lg rounded-2xl p-6 max-h-[80vh] overflow-y-auto"
+      style={{ backgroundColor: C.paper, border: `1px solid ${C.canvasDeep}` }}
+    >
+      <div className="flex items-center justify-between mb-5">
+        <p className="text-lg font-bold" style={{ ...headingFont, color: C.forestDeep }}>
+          {statModal === "dipinjam" && "Alat Sedang Dipinjam"}
+          {statModal === "menunggu" && "Persetujuan Tertunda"}
+          {statModal === "totalPenyewa" && "Total Penyewa Aktif"}
+        </p>
+        <button
+          type="button"
+          onClick={() => setStatModal(null)}
+          className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-stone-100"
+        >
+          <XCircle size={18} />
+        </button>
+      </div>
+
+      <div className="space-y-3">
+        {statModal === "dipinjam" && (
+          returnQueue.length === 0 ? (
+            <p className="text-xs text-stone-500">Tidak ada alat yang sedang dipinjam.</p>
+          ) : (
+            returnQueue.map((r) => (
+              <div key={r.id} className="p-3 rounded-xl border border-stone-100">
+                <p className="text-sm font-semibold">{r.alat}</p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {r.user} · {r.tanggal}
+                </p>
+              </div>
+            ))
+          )
+        )}
+
+        {statModal === "menunggu" && (
+          queue.length === 0 ? (
+            <p className="text-xs text-stone-500">Tidak ada pengajuan tertunda.</p>
+          ) : (
+            queue.map((q) => (
+              <div key={q.id} className="p-3 rounded-xl border border-stone-100">
+                <p className="text-sm font-semibold">{q.alat}</p>
+                <p className="text-xs text-stone-500 mt-0.5">
+                  {q.user} · {q.tanggal}
+                </p>
+              </div>
+            ))
+          )
+        )}
+
+        {statModal === "totalPenyewa" && (
+          usersList.length === 0 ? (
+            <p className="text-xs text-stone-500">Belum ada data penyewa.</p>
+          ) : (
+            usersList.map((u) => (
+              <div key={u.id_user} className="p-3 rounded-xl border border-stone-100">
+                <p className="text-sm font-semibold">{u.nama_lengkap || "Nama tidak tersedia"}</p>
+                <p className="text-xs text-stone-500 mt-0.5">{u.email}</p>
+              </div>
+            ))
+          )
+        )}
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setStatModal(null)}
+        className="w-full mt-6 py-2.5 rounded-full font-semibold text-sm"
+        style={{ backgroundColor: C.forest, color: C.paper }}
+      >
+        Tutup
+      </button>
+    </div>
+  </div>
+)}
     </div>
   );
 }
