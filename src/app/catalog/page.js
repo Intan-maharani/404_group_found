@@ -101,6 +101,13 @@ export default function CatalogPage() {
   const todayStr = getTodayString();
 
   const handleOpenBorrowModal = (item) => {
+    const token = typeof window !== "undefined"? localStoragae.getItem("session-token"): null;
+    if (!token){
+      allert("anda harus login");
+      router.push("/login");
+      return;
+    }
+
     if (isAdmin) {
       alert("Akun Admin tidak diizinkan meminjam barang. Peminjaman hanya untuk akun User.");
       return;

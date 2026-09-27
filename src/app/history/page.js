@@ -320,6 +320,7 @@ export default function HistoryPage() {
                     <label className="flex items-start gap-2 cursor-pointer text-xs text-amber-900 leading-relaxed">
                       <input 
                         type="checkbox" 
+                        id= "earlyCheck"
                         checked={isEarlyReturnChecked}
                         onChange={(e) => setIsEarlyReturnChecked(e.target.checked)}
                         className="mt-0.5 w-4 h-4 cursor-pointer accent-amber-700"
