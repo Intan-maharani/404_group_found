@@ -102,7 +102,7 @@ const loadAdminData = async () => {
     id: b.id_peminjaman,
     user: user?.nama_lengkap || "Nama tidak tersedia",
     email: user?.email || "Email tidak tersedia",
-    phone: "Nomor HP tidak tersedia",
+    phone: "087620754627",
     alat: namaAlat || "Barang tidak tersedia",
     jumlah: details.reduce((t, d) => t + Number(d.jumlah_pinjam || 0), 0),
     tanggal: `${b.tanggal_mulai_sewa} – ${b.tanggal_selesai_sewa}`,

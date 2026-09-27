@@ -1,4 +1,9 @@
+
+"use client";
+
 import { C, headingFont, bodyFont } from "../lib/tokens";
+import { useState } from "react";
+import { Eye, EyeOff } from "lucide-react";
 
 export function GearTag({ children, tone = C.moss }) {
   return (
@@ -38,22 +43,46 @@ export function SectionEyebrow({ index, total, title, desc }) {
 }
 
 export function Field({ label, placeholder, type = "text", name, value, onChange, required = false, readOnly = false }) {
+  const isPassword = type === "password";
+  const [showPassword, setShowPassword] = useState(false);
+  const inputType = isPassword ? (showPassword ? "text" : "password") : type;
+
   return (
     <div>
       <label className="text-xs font-semibold block mb-1.5" style={{ ...bodyFont, color: "#5C5548" }}>
         {label}
       </label>
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        readOnly={readOnly}
-        className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
-        style={{ ...bodyFont, backgroundColor: "#fff", border: `1px solid ${C.canvasDeep}`, color: C.ink }}
-      />
+      <div className="relative">
+        <input
+          type={inputType}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          required={required}
+          readOnly={readOnly}
+          className="w-full px-4 py-2.5 rounded-xl text-sm outline-none"
+          style={{
+            ...bodyFont,
+            backgroundColor: "#fff",
+            border: `1px solid ${C.canvasDeep}`,
+            color: C.ink,
+            paddingRight: isPassword ? "2.75rem" : undefined,
+          }}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            onClick={() => setShowPassword((prev) => !prev)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
+            style={{ color: "#8A8272" }}
+            tabIndex={-1}
+            aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+          >
+            {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
