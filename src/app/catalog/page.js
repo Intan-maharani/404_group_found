@@ -165,8 +165,11 @@ export default function CatalogPage() {
       }
     } catch (e) {}
 
+    const borrowId = generateUuid();
+
+    // 1. Payload untuk tabel utama /borrows
     const borrowPayload = {
-      id_peminjaman: generateUuid(),
+      id_peminjaman: borrowId,
       id_user: sessionUser.id,
       tanggal_mulai_sewa: startDate,
       tanggal_selesai_sewa: endDate,
@@ -176,11 +179,34 @@ export default function CatalogPage() {
       nama_item: selectedItem.name,
     };
 
+    // 2. Payload untuk tabel rincian /borrows_details
+    const detailPayload = {
+      id_detail: generateUuid(),
+      id_peminjaman: borrowId,
+      id_item: selectedItem.id, // atau id_item (sesuaikan dengan struktur database dashboard kamu)
+      id_paket : null,
+      jumlah_pinjam: 1,
+      subtotal_biaya: Number(selectedItem.pricePerDay * dayDiff),
+    };
+
     try {
-      const response = await apiFetch("/borrows", {
+      // 1. Kirim data utama ke /borrows terlebih dahulu
+      const borrowRes = await apiFetch("/borrows", {
         method: "POST",
         body: JSON.stringify(borrowPayload),
       });
+      console.log("Response /borrows:", borrowRes);
+
+      // 2. Kirim data rincian ke /borrows_details secara terpisah agar error-nya terlihat jelas jika gagal
+      try {
+        const detailRes = await apiFetch("/borrows_details", {
+          method: "POST",
+          body: JSON.stringify(detailPayload),
+        });
+        console.log("Response /borrows_details:", detailRes);
+      } catch (detailErr) {
+        console.error("Gagal insert ke /borrows_details:", detailErr);
+      }
 
       alert(`Berhasil! Pengajuan peminjaman "${selectedItem.name}" telah masuk ke database.`);
       setSelectedItem(null);
@@ -189,8 +215,7 @@ export default function CatalogPage() {
       console.error("Gagal POST ke database:", error);
       setErrorMessage("Gagal mengirim data ke database. Pastikan backend mengizinkan format data ini.");
     }
-  };
-
+  }
   return (
     <div className="p-4 sm:p-8 bg-slate-50 min-h-screen text-slate-800">
       <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
