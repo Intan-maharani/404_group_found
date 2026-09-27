@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation"; // <-- 1. Impor useRouter
 import { Clock3, CheckCircle2, XCircle, Backpack, RotateCcw, RefreshCw } from "lucide-react";
 import { C, headingFont, bodyFont } from "../../lib/tokens";
 import { SectionEyebrow } from "../../components/Shared";
@@ -37,6 +38,8 @@ function normalizeStatus(rawStatus = "", startDateStr = "", endDateStr = "") {
 }
 
 export default function HistoryPage() {
+  const router = useRouter(); // <-- 2. Inisialisasi router
+
   const [riwayat, setRiwayat] = useState([]);
   const [selectedId, setSelectedId] = useState("");
   const [activeFilter, setActiveFilter] = useState("ALL");
@@ -48,7 +51,18 @@ export default function HistoryPage() {
   const [selectedReturnItem, setSelectedReturnItem] = useState(null);
   const [actualReturnDate, setActualReturnDate] = useState("");
   const [returnNote, setReturnNote] = useState("");
-  const [isEarlyReturnChecked, setIsEarlyReturnChecked] = useState("false");
+  const [isEarlyReturnChecked, setIsEarlyReturnChecked] = useState(false);
+
+  // --- 3. CEK OTENTIKASI: JIKA TAMU BELUM LOGIN, LEMPAR KE /auth ---
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sessionUserStr = localStorage.getItem("session_user");
+      if (!sessionUserStr) {
+        router.replace("/auth");
+      }
+    }
+  }, [router]);
+
   const filteredRiwayat = riwayat.filter((item) => {
     if (activeFilter === "ALL") return true;
     return item.status.toLowerCase() === activeFilter.toLowerCase();
@@ -162,7 +176,7 @@ export default function HistoryPage() {
     } finally {
       if (!isBackgroundFetch) setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   // --- FUNGSI UNTUK MEMBUKA MODAL FORM PENGEMBALIAN ---
   const handleOpenReturnModal = (item) => {
@@ -326,7 +340,7 @@ export default function HistoryPage() {
                     <label className="flex items-start gap-2 cursor-pointer text-xs text-amber-900 leading-relaxed">
                       <input 
                         type="checkbox" 
-                        id= "earlyCheck"
+                        id="earlyCheck"
                         checked={isEarlyReturnChecked}
                         onChange={(e) => setIsEarlyReturnChecked(e.target.checked)}
                         className="mt-0.5 w-4 h-4 cursor-pointer accent-amber-700"
@@ -426,7 +440,6 @@ export default function HistoryPage() {
         </div>
       </div>
 
-      {/* --- MODAL FORM PENGEMBALIAN LEBIH CEPAT / TEPAT WAKTU --- */}
       {/* --- MODAL FORM PENGEMBALIAN LEBIH CEPAT / TEPAT WAKTU --- */}
       {returnModalOpen && (
         <div style={{
