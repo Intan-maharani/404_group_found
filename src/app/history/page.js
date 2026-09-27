@@ -64,6 +64,14 @@ export default function HistoryPage() {
 
   // Ambil data murni dari endpoint database /borrows
   const loadBorrows = useCallback(async (isBackgroundFetch = false) => {
+    if (typeof window !== "undefined") {
+      const sessionUserStr = localStorage.getItem("session_user");
+      if (!sessionUserStr) {
+        router.replace("/auth");
+        return;
+      }
+    }
+
     if (!isBackgroundFetch) setLoading(true);
 
     try {
@@ -127,25 +135,23 @@ export default function HistoryPage() {
         };
       });
 
-      const filteredByUser = isAdmin 
-        ? mapped 
-        : mapped.filter(item => {
-            if (!currentUser) return true; 
-            
+      const filteredByUser = isAdmin
+        ? mapped
+        : mapped.filter((item) => {
+            if (!currentUser) return false;
+
             const currentUserId = String(currentUser.id || currentUser.uuid || "").trim();
             const itemUserId = String(item.userId || "").trim();
-            const currentUserName = String(currentUser.name || currentUser.username || "").toLowerCase().trim();
+            const currentUserName = String(currentUser.name || currentUser.username || currentUser.email || "").toLowerCase().trim();
             const itemUserName = String(item.peminjam || "").toLowerCase().trim();
+            const currentUserEmail = String(currentUser.email || "").toLowerCase().trim();
+            const itemUserEmail = String(item.userEmail || item.email_user || "").toLowerCase().trim();
 
-            if (!itemUserId || (currentUserId && itemUserId === currentUserId)) {
-              return true;
-            }
+            if (currentUserId && itemUserId && currentUserId === itemUserId) return true;
+            if (currentUserName && itemUserName && currentUserName === itemUserName) return true;
+            if (currentUserEmail && itemUserEmail && currentUserEmail === itemUserEmail) return true;
 
-            if (currentUserName && itemUserName && itemUserName === currentUserName) {
-              return true;
-            }
-
-            return true;
+            return false;
           });
 
       const finalResult = filteredByUser.reverse();
@@ -173,8 +179,8 @@ export default function HistoryPage() {
     const timer = setTimeout(() => {
       loadBorrows();
     }, 0);
-    
-    const intervalId = setInterval(() => loadBorrows(true), 3000);
+
+    const intervalId = setInterval(() => loadBorrows(true), 15000);
     return () => {
       clearTimeout(timer);
       clearInterval(intervalId);

@@ -2,12 +2,10 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation"; 
 import { Package, ShoppingBag, Calendar, CheckCircle2, X, AlertCircle, ShieldAlert, RefreshCw } from "lucide-react";
 import { apiFetch } from "../../lib/api";
 
 export default function CatalogPage() {
-  const router = useRouter(); 
   const [bundleItems, setBundleItems] = useState([]);
   const [satuanItems, setSatuanItems] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -17,20 +15,17 @@ export default function CatalogPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
 
-  // ROUTE GUARD: Cek apakah user sudah login atau belum
   useEffect(() => {
-    const sessionUserStr = localStorage.getItem("session_user");
-    if (!sessionUserStr) {
-      // Jika belum login / tamu, paksa arahkan ke halaman utama/autentikasi
-      router.replace("/auth");
-      return;
-    }
-
     const updateRole = () => {
       try {
-        const userObj = JSON.parse(sessionUserStr);
-        const role = String(userObj.role || "").toLowerCase().trim();
-        setIsAdmin(role === "admin");
+        const sessionUserStr = localStorage.getItem("session_user");
+        if (sessionUserStr) {
+          const userObj = JSON.parse(sessionUserStr);
+          const role = String(userObj.role || "").toLowerCase().trim();
+          setIsAdmin(role === "admin");
+        } else {
+          setIsAdmin(false);
+        }
       } catch (err) {
         setIsAdmin(false);
       }
@@ -43,7 +38,7 @@ export default function CatalogPage() {
       window.removeEventListener("auth-change", updateRole);
       window.removeEventListener("storage", updateRole);
     };
-  }, [router]);
+  }, []);
 
   const loadCatalogData = async () => {
     setLoading(true);
@@ -54,11 +49,12 @@ export default function CatalogPage() {
     try {
       const resPkg = await apiFetch("/packages");
       const rawPkg = Array.isArray(resPkg) ? resPkg : (resPkg?.data || []);
+      console.log("RAW PACKAGES:", JSON.stringify(rawPkg, null, 2));
       fetchedBundles = rawPkg.map((pkg, idx) => ({
-        id: pkg.uuid || pkg.id || `pkg-${idx}`,
+        id: pkg.id_paket || pkg.uuid || pkg.id || `pkg-${idx}`,
         name: pkg.nama_paket || pkg.name || "Paket Camping",
         category: "Bundle",
-        pricePerDay: Number(pkg.harga_paket_hari || pkg.harga || pkg.pricePerDay) || 100000,
+        pricePerDay: Number(pkg.harga_paket_per_hari || pkg.harga_paket_hari || pkg.harga || pkg.pricePerDay) || 100000,
         available: Number(pkg.stok || pkg.available) || 5,
         image: pkg.ikon || pkg.image || "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg",
         description: pkg.deskripsi || pkg.description || "Paket bundle hemat untuk kegiatan camping dan piknik.",
@@ -72,12 +68,13 @@ export default function CatalogPage() {
       const resItem = await apiFetch("/items");
       const rawItem = Array.isArray(resItem) ? resItem : (resItem?.data || []);
       fetchedSatuan = rawItem.map((item, idx) => ({
-        id: item.uuid || item.id || `item-${idx}`,
+        id: item.id_item || item.uuid || item.id ||`item-${idx}`,
         name: item.nama_item || item.name || "Barang Satuan",
         category: "Satuan",
-        pricePerDay: Number(item.harga_sewa_hari || item.harga_sewa || item.pricePerDay) || 25000,
+        pricePerDay: Number(item.harga_sewa_per_hari || item.harga_sewa_hari || item.harga_sewa || item.pricePerDay) || 25000,
         available: Number(item.stok_tersedia ?? item.available) ?? 10,
-        image: item.ikon_item || item.image || "https://i.pinimg.com/1200x/ef/ad/a8/efada842dbe689ef1f1965066334aa15.jpg",
+        image: item.ikon_item || item.image ||
+         "https://i.pinimg.com/1200x/22/7c/57/227c579eff9f406f3d6a8be2898878e9.jpg",
         description: item.deskripsi || item.description || "Peralatan satuan berkualitas untuk kebutuhan outdoor Anda.",
       }));
     } catch (e) {
@@ -101,13 +98,6 @@ export default function CatalogPage() {
   const todayStr = getTodayString();
 
   const handleOpenBorrowModal = (item) => {
-    const token = typeof window !== "undefined"? localStoragae.getItem("session-token"): null;
-    if (!token){
-      allert("anda harus login");
-      router.push("/login");
-      return;
-    }
-
     if (isAdmin) {
       alert("Akun Admin tidak diizinkan meminjam barang. Peminjaman hanya untuk akun User.");
       return;
@@ -126,103 +116,99 @@ export default function CatalogPage() {
   };
 
   const handleConfirmBorrow = async () => {
-    if (!startDate || !endDate) {
-      setErrorMessage("Silakan pilih tanggal mulai dan selesai sewa!");
-      return;
-    }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    const today = new Date(todayStr);
-
-    if (start < today) {
-      setErrorMessage("Tanggal sewa tidak boleh tanggal yang sudah lewat!");
-      return;
-    }
-
-    const timeDiff = end.getTime() - start.getTime();
-    const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
-
-    if (end < start) {
-      setErrorMessage("Tanggal selesai sewa tidak boleh sebelum tanggal mulai!");
-      return;
-    }
-
-    if (dayDiff < 1) {
-      setErrorMessage("Peminjaman tidak boleh kurang dari sehari (minimal 1 hari)!");
-      return;
-    }
-
-    const generateUuid = () => {
-      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
-        var r = (Math.random() * 16) | 0,
-          v = c === "x" ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      });
-    };
-
-    let sessionUser = { id: "71cedae5-a3e9-a9dd-47a4-b6919bb07701" };
-    try {
-      const storedUser = localStorage.getItem("session_user");
-      if (storedUser) {
-        const parsed = JSON.parse(storedUser);
-        if (parsed.id || parsed.uuid) {
-          sessionUser.id = parsed.id || parsed.uuid;
-        }
-      }
-    } catch (e) {}
-
-    const borrowId = generateUuid();
-
-    // 1. Payload untuk tabel utama /borrows
-    const borrowPayload = {
-      id_peminjaman: borrowId,
-      id_user: sessionUser.id,
-      tanggal_mulai_sewa: startDate,
-      tanggal_selesai_sewa: endDate,
-      total_durasi: Number(dayDiff),
-      total_biaya: Number(selectedItem.pricePerDay * dayDiff),
-      status_peminjaman: "pending",
-      nama_item: selectedItem.name,
-    };
-
-    // 2. Payload untuk tabel rincian /borrows_details
-    const detailPayload = {
-      id_detail: generateUuid(),
-      id_peminjaman: borrowId,
-      id_item: selectedItem.id, // atau id_item (sesuaikan dengan struktur database dashboard kamu)
-      id_paket : null,
-      jumlah_pinjam: 1,
-      subtotal_biaya: Number(selectedItem.pricePerDay * dayDiff),
-    };
-
-    try {
-      // 1. Kirim data utama ke /borrows terlebih dahulu
-      const borrowRes = await apiFetch("/borrows", {
-        method: "POST",
-        body: JSON.stringify(borrowPayload),
-      });
-      console.log("Response /borrows:", borrowRes);
-
-      // 2. Kirim data rincian ke /borrows_details secara terpisah agar error-nya terlihat jelas jika gagal
-      try {
-        const detailRes = await apiFetch("/borrows_details", {
-          method: "POST",
-          body: JSON.stringify(detailPayload),
-        });
-        console.log("Response /borrows_details:", detailRes);
-      } catch (detailErr) {
-        console.error("Gagal insert ke /borrows_details:", detailErr);
-      }
-
-      alert(`Berhasil! Pengajuan peminjaman "${selectedItem.name}" telah masuk ke database.`);
-      setSelectedItem(null);
-      router.push("/history");
-    } catch (error) {
-      console.error("Gagal POST ke database:", error);
-      setErrorMessage("Gagal mengirim data ke database. Pastikan backend mengizinkan format data ini.");
-    }
+  if (!startDate || !endDate) {
+    setErrorMessage("Silakan pilih tanggal mulai dan selesai sewa!");
+    return;
   }
+
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+  const today = new Date(todayStr);
+
+  if (start < today) {
+    setErrorMessage("Tanggal sewa tidak boleh tanggal yang sudah lewat!");
+    return;
+  }
+
+  const timeDiff = end.getTime() - start.getTime();
+  const dayDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+
+  if (end < start) {
+    setErrorMessage("Tanggal selesai sewa tidak boleh sebelum tanggal mulai!");
+    return;
+  }
+
+  if (dayDiff < 1) {
+    setErrorMessage("Peminjaman tidak boleh kurang dari sehari (minimal 1 hari)!");
+    return;
+  }
+
+  const generateUuid = () => {
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+      var r = (Math.random() * 16) | 0,
+        v = c === "x" ? r : (r & 0x3) | 0x8;
+      return v.toString(16);
+    });
+  };
+
+  let sessionUserId = null;
+try {
+  const storedUser = localStorage.getItem("session_user");
+  if (storedUser) {
+    const parsed = JSON.parse(storedUser);
+    sessionUserId = parsed.id || parsed.id_user || parsed.uuid || null;
+  }
+} catch (e) {}
+
+if (!sessionUserId) {
+  setErrorMessage("Sesi login kamu tidak ditemukan. Silakan login ulang sebelum meminjam.");
+  return;
+}
+  const newBorrowId = generateUuid();
+
+  const borrowPayload = {
+    id_peminjaman: newBorrowId,
+    id_user: sessionUserId,
+    tanggal_mulai_sewa: startDate,
+    tanggal_selesai_sewa: endDate,
+    total_durasi: Number(dayDiff),
+    total_biaya: Number(selectedItem.pricePerDay * dayDiff),
+    status_peminjaman: "pending",
+  };
+
+  try {
+    await apiFetch("/borrows", {
+      method: "POST",
+      body: JSON.stringify(borrowPayload),
+    });
+
+    const isBundle = selectedItem.category === "Bundle";
+
+   const detailPayload = {
+   id_peminjaman: newBorrowId,
+   ...(isBundle ? { id_paket: selectedItem.id } : { id_item: selectedItem.id }),
+   jumlah_pinjam: 1,
+   subtotal_biaya: Number(selectedItem.pricePerDay * dayDiff),
+};
+
+    console.log("DETAIL PAYLOAD:", detailPayload); // <-- tambahan
+
+
+    await apiFetch("/borrows_details", {
+      method: "POST",
+      body: JSON.stringify(detailPayload),
+    });
+
+    alert(`Berhasil! Pengajuan peminjaman "${selectedItem.name}" telah masuk ke database.`);
+    setSelectedItem(null);
+    window.location.href = "/history";
+  } catch (error) {
+    console.error("Gagal POST ke database:", error);
+    setErrorMessage("Gagal mengirim data ke database. Pastikan backend mengizinkan format data ini.");
+  }
+};
+
+
   return (
     <div className="p-4 sm:p-8 bg-slate-50 min-h-screen text-slate-800">
       <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -272,6 +258,7 @@ export default function CatalogPage() {
           <div className="text-center py-20 text-slate-400 text-sm">Memuat data paket dan item dari database...</div>
         ) : (
           <>
+            {/* Section 1: Paket Glamping / Bundle (Dari tabel /packages) */}
             {bundleItems.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">
@@ -339,6 +326,7 @@ export default function CatalogPage() {
               </section>
             )}
 
+            {/* Section 2: Barang Satuan (Dari tabel /items) */}
             {satuanItems.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-6 border-b pb-3 border-slate-200">

@@ -24,9 +24,10 @@ export default function AdminPage() {
   const [bannerMsg, setBannerMsg] = useState("");
   const [selectedQueue, setSelectedQueue] = useState(null);
   const [returnQueue, setReturnQueue] = useState([]);
+  const [activeInUseList, setActiveInUseList] = useState([]);
   const [statModal, setStatModal] = useState(null); // "dipinjam" | "menunggu" | "totalPenyewa" | null
   const [usersList, setUsersList] = useState([]);
-  
+
 
   // Statistik
   const [stats, setStats] = useState({
@@ -56,11 +57,19 @@ const loadAdminData = async () => {
       : [];
 
     // =========================
-    // 2. PEMINJAMAN YANG SEDANG DIPINJAM
+    // 2. ALAT YANG SEDANG DI TANGAN PENYEWA (approved ATAU borrowed)
+    // "approved"  = alat sedang dipinjam, belum ada pengajuan pengembalian
+    // "borrowed"  = user SUDAH mengajukan pengembalian, menunggu verifikasi admin
     // =========================
-    const activeBorrowed = Array.isArray(borrows)
-  ? borrows.filter((b) => b.status_peminjaman === "approved" || b.status_peminjaman === "borrowed")
-  : [];
+    const activeInUse = Array.isArray(borrows)
+      ? borrows.filter((b) => b.status_peminjaman === "approved" || b.status_peminjaman === "borrowed")
+      : [];
+
+    // Yang perlu ditampilkan di panel "Verifikasi Pengembalian" HANYA yang
+    // statusnya "borrowed" (artinya sudah diajukan pengembalian oleh user).
+    const returnRequests = Array.isArray(borrows)
+      ? borrows.filter((b) => b.status_peminjaman === "borrowed")
+      : [];
 
     // =========================
     // 3. BUAT DATA ANTREAN
@@ -103,16 +112,18 @@ const loadAdminData = async () => {
 };
 
 const mappedPending = pending.map(mapBorrowToDisplay);
-const mappedBorrowed = activeBorrowed.map(mapBorrowToDisplay);
+const mappedReturnRequests = returnRequests.map(mapBorrowToDisplay);
+const mappedActiveInUse = activeInUse.map(mapBorrowToDisplay);
 
 setQueue(mappedPending);
-setReturnQueue(mappedBorrowed);
+setReturnQueue(mappedReturnRequests);
+setActiveInUseList(mappedActiveInUse);
 setUsersList(Array.isArray(users) ? users : []);
     // =========================
     // 4. UPDATE STATISTIK
     // =========================
     setStats({
-      dipinjam: activeBorrowed.length,
+      dipinjam: activeInUse.length,
       menunggu: pending.length,
       totalPenyewa: Array.isArray(users)
         ? users.length
@@ -150,7 +161,7 @@ setUsersList(Array.isArray(users) ? users : []);
         : "",
   }),
 });
-    
+
    setBannerMsg(
   `Peminjaman ID: ${id} berhasil di-${
     status === "approved" ? "setujui" : "tolak"
@@ -170,7 +181,11 @@ await loadAdminData();
       setActionLoading(null);
     }
   };
-       const handleReturnConfirm = async (id) => {
+
+  // Admin mengonfirmasi bahwa alat sudah diterima kembali. Ini hanya berlaku
+  // untuk peminjaman yang statusnya "borrowed" (sudah diajukan pengembalian
+  // oleh user lewat halaman riwayat).
+  const handleReturnConfirm = async (id) => {
        setActionLoading(id);
        setBannerMsg("");
   try {
@@ -182,9 +197,10 @@ await loadAdminData();
         body: JSON.stringify({ status_peminjaman: "returned" }),
         });
 
-    setReturnQueue((prev) => prev.filter((item) => item.id !== id));
-    setStats((prev) => ({ ...prev, dipinjam: Math.max(0, prev.dipinjam - 1) }));
     setBannerMsg(`Pengembalian ID: ${id} berhasil dikonfirmasi & stok dikembalikan.`);
+
+    // Refresh dari server biar stats & queue tetap sinkron dengan database
+    await loadAdminData();
   } catch (err) {
     console.error("Gagal konfirmasi pengembalian:", err);
     setBannerMsg(`Gagal mengonfirmasi pengembalian ID: ${id}.`);
@@ -248,7 +264,7 @@ await loadAdminData();
       ))}
     </div>
 
-    
+
 
       <div className="grid lg:grid-cols-[1.4fr_1fr] gap-6">
         {/* Antrean Approval */}
@@ -324,7 +340,10 @@ await loadAdminData();
           )}
         </div>
 
-        {/* Verifikasi Pengembalian */}
+        {/* Verifikasi Pengembalian: hanya menampilkan peminjaman yang SUDAH
+            diajukan pengembalian oleh user (status "borrowed"). Alat yang masih
+            berstatus "approved" (sedang dipinjam, belum diajukan kembali) TIDAK
+            muncul di sini. */}
         <div className="rounded-2xl overflow-hidden" style={{ border: `1px solid ${C.canvasDeep}` }}>
    <div className="px-5 py-3 flex items-center gap-2" style={{ backgroundColor: C.forestDeep }}>
     <ShieldCheck size={15} style={{ color: C.amber }} />
@@ -335,7 +354,7 @@ await loadAdminData();
 
   {returnQueue.length === 0 ? (
     <div className="p-6 text-center bg-white">
-      <p className="text-xs text-stone-500">Tidak ada alat yang sedang dipinjam saat ini.</p>
+      <p className="text-xs text-stone-500">Belum ada pengajuan pengembalian saat ini.</p>
     </div>
      ) : (
      <div className="divide-y divide-stone-100 bg-white">
@@ -503,10 +522,10 @@ await loadAdminData();
 
       <div className="space-y-3">
         {statModal === "dipinjam" && (
-          returnQueue.length === 0 ? (
+          activeInUseList.length === 0 ? (
             <p className="text-xs text-stone-500">Tidak ada alat yang sedang dipinjam.</p>
           ) : (
-            returnQueue.map((r) => (
+            activeInUseList.map((r) => (
               <div key={r.id} className="p-3 rounded-xl border border-stone-100">
                 <p className="text-sm font-semibold">{r.alat}</p>
                 <p className="text-xs text-stone-500 mt-0.5">
