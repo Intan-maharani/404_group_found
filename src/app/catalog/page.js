@@ -67,7 +67,7 @@ export default function CatalogPage() {
         pricePerDay: Number(pkg.harga_paket_per_hari || pkg.harga_paket_hari || pkg.harga || pkg.pricePerDay) || 100000,
         available: Number(pkg.stok || pkg.available) || 5,
         image: pkg.ikon || pkg.image || "https://i.pinimg.com/1200x/de/12/42/de12422cd598be0198805dac5e67506a.jpg",
-        description: pkg.deskripsi || pkg.description || "Paket bundle hemat untuk kegiatan camping dan piknik.",
+        description: pkg.deskripsi_paket || pkg.deskripsi || pkg.description || "Paket bundle hemat untuk kegiatan camping dan piknik.",
       }));
     } catch (e) {
       console.log("Gagal memuat endpoint /packages:", e);
@@ -85,7 +85,7 @@ export default function CatalogPage() {
         available: Number(item.stok_tersedia ?? item.available) ?? 10,
         image: item.ikon_item || item.image ||
          "https://i.pinimg.com/1200x/22/7c/57/227c579eff9f406f3d6a8be2898878e9.jpg",
-        description: item.deskripsi || item.description || "Peralatan satuan berkualitas untuk kebutuhan outdoor Anda.",
+        description: item.deskripsi_item || item.deskripsi || item.description || "Peralatan satuan berkualitas untuk kebutuhan outdoor Anda.",
       }));
     } catch (e) {
       console.log("Gagal memuat endpoint /items:", e);
